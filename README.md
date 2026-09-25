@@ -34,7 +34,7 @@ An end-to-end deep learning engineering pipeline designed to predict NYC Yellow 
 - **Course:** Machine Learning Projects with Python (`CSE 4192`)
 - **Department:** Department of Computer Science & Engineering | Centre for Artificial Intelligence & Machine Learning
 - **Institution:** Siksha 'O' Anusandhan (Deemed to be University), ITER, Bhubaneswar
-- **Academic Session:** 2025 – 2026 | **Admission Batch:** 2023 – 2027
+- **Academic Session:** 2026– 2027 | **Admission Batch:** 2023 – 2027
 - **Course Faculty:** Dr. Gyana Ranjan Patra
 
 ---
