@@ -75,16 +75,25 @@ st.sidebar.markdown("---")
 
 # Dynamic Theme Tokens
 chart_font_color = "#F1F5F9" if is_night_theme else "#0F172A"
-chart_grid_color = "#1E293B" if is_night_theme else "#CBD5E1"
+chart_grid_color = "#1E293B" if is_night_theme else "#E2E8F0"
 chart_gauge_bg = "rgba(15, 23, 42, 0.6)" if is_night_theme else "#F8FAFC"
 chart_gauge_border = "#334155" if is_night_theme else "#CBD5E1"
 card_bg = "rgba(15, 23, 42, 0.85)" if is_night_theme else "#FFFFFF"
 card_border = "rgba(255, 255, 255, 0.1)" if is_night_theme else "#CBD5E1"
 card_text = "#94A3B8" if is_night_theme else "#475569"
-radar_polar_bg = "rgba(15, 23, 42, 0.6)" if is_night_theme else "#F8FAFC"
-radar_grid_color = "#334155" if is_night_theme else "#CBD5E1"
+radar_polar_bg = "rgba(15, 23, 42, 0.6)" if is_night_theme else "#FFFFFF"
+radar_grid_color = "#334155" if is_night_theme else "#E2E8F0"
 map_theme_pdk = pdk.map_styles.CARTO_DARK if is_night_theme else pdk.map_styles.CARTO_LIGHT
 map_theme_plotly = "carto-darkmatter" if is_night_theme else "carto-positron"
+accent_blue = "#38BDF8" if is_night_theme else "#2563EB"
+accent_cyan = "#22D3EE" if is_night_theme else "#06B6D4"
+text_primary = "#F1F5F9" if is_night_theme else "#0F172A"
+text_secondary = "#94A3B8" if is_night_theme else "#475569"
+text_muted = "#64748B" if is_night_theme else "#64748B"
+receipt_title_color = "#FDE68A" if is_night_theme else "#0F172A"
+receipt_dash_color = "rgba(255, 255, 255, 0.15)" if is_night_theme else "#CBD5E1"
+receipt_subtotal_color = "#38BDF8" if is_night_theme else "#2563EB"
+receipt_total_color = "#D97706" if is_night_theme else "#2563EB"
 
 if is_night_theme:
     theme_css = """
@@ -351,78 +360,163 @@ if is_night_theme:
         border: 1px solid rgba(255,255,255,0.07);
         margin-top: 0.5rem;
     }
+    
+    .receipt-header {
+        text-align: center;
+        border-bottom: 1px dashed rgba(148, 163, 184, 0.3);
+        padding-bottom: 1rem;
+        margin-bottom: 1rem;
+    }
+    .receipt-line {
+        display: flex;
+        justify-content: space-between;
+        margin: 0.4rem 0;
+        font-size: 0.88rem;
+        color: #E2E8F0;
+    }
+    .receipt-total {
+        border-top: 2px solid rgba(245, 158, 11, 0.4);
+        margin-top: 1rem;
+        padding-top: 0.8rem;
+        display: flex;
+        justify-content: space-between;
+        font-size: 1.25rem;
+        font-weight: 800;
+        color: #F59E0B;
+    }
+    
+    .status-led {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        margin-right: 6px;
+    }
+    .led-green { background-color: #10B981; box-shadow: 0 0 8px #10B981; }
+    .led-amber { background-color: #F59E0B; box-shadow: 0 0 8px #F59E0B; }
+    .led-red { background-color: #EF4444; box-shadow: 0 0 8px #EF4444; }
     """
 else:
     theme_css = """
-    /* Main Background Accent - Sunlit Day Mode */
+    /* Main Background Accent - Crisp Sunlit Day Mode (Zero Blur, Zero Fog) */
     .stApp {
-        background: radial-gradient(circle at 12% 15%, rgba(191, 219, 254, 0.55) 0%, transparent 45%),
-                    radial-gradient(circle at 88% 22%, rgba(254, 240, 138, 0.45) 0%, transparent 45%),
-                    radial-gradient(circle at 50% 80%, rgba(204, 251, 241, 0.45) 0%, transparent 50%),
-                    #F1F5F9;
-        color: #0F172A;
+        background-color: #F8FAFC !important;
+        background-image: linear-gradient(180deg, #F8FAFC 0%, #F1F5F9 100%) !important;
+        color: #0F172A !important;
     }
     
-    /* Sunlit Light Sidebar Styling */
+    /* Clean Light Sidebar */
     section[data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 50%, #F1F5F9 100%) !important;
-        border-right: 1px solid #CBD5E1 !important;
-        box-shadow: 4px 0 20px rgba(0, 0, 0, 0.05) !important;
+        background: #FFFFFF !important;
+        border-right: 1px solid #E2E8F0 !important;
+        box-shadow: 2px 0 12px rgba(15, 23, 42, 0.04) !important;
     }
     section[data-testid="stSidebar"] .stMarkdown, 
     section[data-testid="stSidebar"] label,
-    section[data-testid="stSidebar"] p {
-        color: #1E293B !important;
+    section[data-testid="stSidebar"] p,
+    section[data-testid="stSidebar"] span {
+        color: #0F172A !important;
         font-weight: 500 !important;
     }
+    section[data-testid="stSidebar"] h1,
+    section[data-testid="stSidebar"] h2,
+    section[data-testid="stSidebar"] h3,
+    section[data-testid="stSidebar"] h4 {
+        color: #0F172A !important;
+        font-weight: 700 !important;
+    }
     
-    /* Sidebar Inputs Styling */
+    /* High-Visibility Sidebar Inputs */
     section[data-testid="stSidebar"] div[data-testid="stSelectbox"] > div,
     section[data-testid="stSidebar"] div[data-testid="stNumberInput"] > div,
+    section[data-testid="stSidebar"] div[data-testid="stTextInput"] > div,
     section[data-testid="stSidebar"] div[data-testid="stDateInput"] > div,
     section[data-testid="stSidebar"] div[data-testid="stTimeInput"] > div {
         background-color: #FFFFFF !important;
         border: 1px solid #CBD5E1 !important;
         border-radius: 10px !important;
         color: #0F172A !important;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+        box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04) !important;
     }
-    
-    /* Hero Header */
+    section[data-testid="stSidebar"] input {
+        color: #0F172A !important;
+        background-color: #FFFFFF !important;
+    }
+
+    /* All Main Page Form Inputs */
+    div[data-testid="stSelectbox"] > div,
+    div[data-testid="stNumberInput"] > div,
+    div[data-testid="stTextInput"] > div,
+    div[data-testid="stDateInput"] > div,
+    div[data-testid="stTimeInput"] > div {
+        background-color: #FFFFFF !important;
+        border: 1px solid #CBD5E1 !important;
+        border-radius: 10px !important;
+        color: #0F172A !important;
+        box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04) !important;
+    }
+    div[data-baseweb="select"] > div {
+        background-color: #FFFFFF !important;
+        border-color: #CBD5E1 !important;
+        color: #0F172A !important;
+    }
+    div[data-baseweb="input"] {
+        background-color: #FFFFFF !important;
+        border-color: #CBD5E1 !important;
+        color: #0F172A !important;
+    }
+    div[data-baseweb="input"]:focus-within,
+    div[data-baseweb="select"]:focus-within {
+        border-color: #2563EB !important;
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15) !important;
+    }
+    input::placeholder {
+        color: #64748B !important;
+    }
+
+    /* General Typography & Headings */
+    h1, h2, h3, h4, h5, h6 {
+        color: #0F172A !important;
+        font-family: 'Space Grotesk', sans-serif !important;
+        font-weight: 700 !important;
+    }
+    p, span, label {
+        color: #0F172A;
+    }
+    .stMarkdown p {
+        color: #334155 !important;
+        line-height: 1.6 !important;
+    }
+
+    /* Hero Header - Sharp High-Contrast Gradient Banner */
     .hero-banner {
-        background: linear-gradient(135deg, #1E3A8A 0%, #0284C7 50%, #0D9488 100%);
-        backdrop-filter: blur(20px);
-        -webkit-backdrop-filter: blur(20px);
-        padding: 2.2rem 2.6rem;
-        border-radius: 22px;
-        color: white;
-        margin-bottom: 1.2rem;
-        border: 1px solid rgba(255, 255, 255, 0.35);
-        box-shadow: 0 20px 40px -10px rgba(2, 132, 199, 0.3), 0 0 25px rgba(14, 165, 233, 0.2);
-        position: relative;
-        overflow: hidden;
-    }
-    .hero-banner::after {
-        content: "";
-        position: absolute;
-        top: 0; right: 0; bottom: 0; width: 35%;
-        background: radial-gradient(circle at 100% 0%, rgba(245, 158, 11, 0.3) 0%, transparent 70%);
-        pointer-events: none;
+        background: linear-gradient(135deg, #1E3A8A 0%, #2563EB 55%, #06B6D4 100%) !important;
+        padding: 2.2rem 2.6rem !important;
+        border-radius: 16px !important;
+        color: #FFFFFF !important;
+        margin-bottom: 1.2rem !important;
+        border: 1px solid #1D4ED8 !important;
+        box-shadow: 0 10px 25px -5px rgba(37, 99, 235, 0.25) !important;
+        position: relative !important;
+        overflow: hidden !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
     }
     .hero-banner h1 {
-        font-family: 'Space Grotesk', sans-serif;
+        font-family: 'Space Grotesk', sans-serif !important;
         color: #FFFFFF !important;
-        font-size: 2.45rem;
-        font-weight: 800;
-        margin-bottom: 0.35rem;
-        letter-spacing: -0.03em;
-        text-shadow: 0 2px 14px rgba(0,0,0,0.3);
+        font-size: 2.45rem !important;
+        font-weight: 800 !important;
+        margin-bottom: 0.35rem !important;
+        letter-spacing: -0.03em !important;
+        text-shadow: 0 2px 10px rgba(0, 0, 0, 0.25) !important;
     }
     .hero-banner p {
-        color: #E0F2FE;
-        font-size: 1.05rem;
-        margin-bottom: 0.6rem;
-        max-width: 85%;
+        color: #E0F2FE !important;
+        font-size: 1.05rem !important;
+        margin-bottom: 0.6rem !important;
+        max-width: 85% !important;
+        font-weight: 500 !important;
     }
     
     .badge-bar {
@@ -432,26 +526,27 @@ else:
         margin-top: 0.9rem;
     }
     .hero-badge {
-        background: rgba(255, 255, 255, 0.18);
-        border: 1px solid rgba(255, 255, 255, 0.4);
-        padding: 0.35rem 0.85rem;
-        border-radius: 9999px;
-        font-size: 0.82rem;
-        color: #FFFFFF;
-        font-weight: 600;
-        backdrop-filter: blur(8px);
+        background: rgba(255, 255, 255, 0.2) !important;
+        border: 1px solid rgba(255, 255, 255, 0.5) !important;
+        padding: 0.35rem 0.85rem !important;
+        border-radius: 9999px !important;
+        font-size: 0.82rem !important;
+        color: #FFFFFF !important;
+        font-weight: 600 !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
     }
     .hero-badge.highlight {
-        background: rgba(254, 243, 199, 0.35);
-        border-color: #F59E0B;
-        color: #FEF3C7;
-        font-weight: 700;
+        background: rgba(254, 243, 199, 0.3) !important;
+        border-color: #FCD34D !important;
+        color: #FEF3C7 !important;
+        font-weight: 700 !important;
     }
     .hero-badge.green {
-        background: rgba(209, 250, 229, 0.35);
-        border-color: #10B981;
-        color: #ECFDF5;
-        font-weight: 700;
+        background: rgba(209, 250, 229, 0.3) !important;
+        border-color: #34D399 !important;
+        color: #ECFDF5 !important;
+        font-weight: 700 !important;
     }
     
     /* Live Telemetry Ribbon */
@@ -459,104 +554,106 @@ else:
         display: flex;
         align-items: center;
         justify-content: space-between;
-        background: #FFFFFF;
-        backdrop-filter: blur(12px);
-        border: 1px solid #E2E8F0;
-        border-radius: 12px;
-        padding: 0.65rem 1.2rem;
-        margin-bottom: 1.2rem;
-        font-size: 0.82rem;
-        color: #334155;
-        font-family: 'JetBrains Mono', monospace;
-        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.04);
+        background: #FFFFFF !important;
+        border: 1px solid #CBD5E1 !important;
+        border-radius: 12px !important;
+        padding: 0.65rem 1.2rem !important;
+        margin-bottom: 1.2rem !important;
+        font-size: 0.82rem !important;
+        color: #334155 !important;
+        font-family: 'JetBrains Mono', monospace !important;
+        box-shadow: 0 2px 8px rgba(15, 23, 42, 0.05) !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
     }
     .pulse-dot {
         display: inline-block;
         width: 8px;
         height: 8px;
         border-radius: 50%;
-        background-color: #10B981;
-        box-shadow: 0 0 10px #10B981, 0 0 20px #10B981;
+        background-color: #16A34A !important;
+        box-shadow: 0 0 6px #16A34A !important;
         margin-right: 8px;
         animation: pulse 1.8s infinite;
     }
     
-    /* Glass Cards */
+    /* Crisp High-Contrast Cards (Zero Blurriness) */
     .glass-card {
-        background: #FFFFFF;
-        backdrop-filter: blur(16px);
-        -webkit-backdrop-filter: blur(16px);
-        border: 1px solid #E2E8F0;
-        border-radius: 16px;
-        padding: 1.2rem 1.4rem;
-        box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.06);
-        transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+        background: #FFFFFF !important;
+        border: 1px solid #CBD5E1 !important;
+        border-radius: 14px !important;
+        padding: 1.2rem 1.4rem !important;
+        box-shadow: 0 4px 14px rgba(15, 23, 42, 0.06) !important;
+        transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
     }
     .glass-card:hover {
-        border-color: #0284C7;
-        transform: translateY(-2px);
-        box-shadow: 0 14px 28px -4px rgba(2, 132, 199, 0.18);
+        border-color: #2563EB !important;
+        transform: translateY(-2px) !important;
+        box-shadow: 0 8px 20px rgba(37, 99, 235, 0.12) !important;
     }
     
     .metric-label {
-        font-size: 0.75rem;
-        text-transform: uppercase;
-        letter-spacing: 0.09em;
-        color: #64748B;
-        font-weight: 700;
-        margin-bottom: 0.3rem;
+        font-size: 0.75rem !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.09em !important;
+        color: #475569 !important;
+        font-weight: 700 !important;
+        margin-bottom: 0.3rem !important;
     }
     .metric-number {
-        font-family: 'JetBrains Mono', monospace;
-        font-size: 1.85rem;
-        font-weight: 800;
-        color: #0F172A;
+        font-family: 'JetBrains Mono', monospace !important;
+        font-size: 1.85rem !important;
+        font-weight: 800 !important;
+        color: #0F172A !important;
     }
     .metric-sub {
-        font-size: 0.8rem;
-        color: #64748B;
-        margin-top: 0.2rem;
+        font-size: 0.8rem !important;
+        color: #64748B !important;
+        margin-top: 0.2rem !important;
     }
     
-    /* Glowing Taximeter Display */
+    /* Taximeter HUD */
     .taximeter-hud {
-        background: linear-gradient(135deg, #047857 0%, #059669 50%, #10B981 100%);
-        backdrop-filter: blur(16px);
-        border: 1px solid #34D399;
-        border-radius: 20px;
-        padding: 1.8rem 1.6rem;
-        text-align: center;
-        box-shadow: 0 18px 35px -8px rgba(16, 185, 129, 0.35);
-        position: relative;
+        background: linear-gradient(135deg, #047857 0%, #059669 50%, #10B981 100%) !important;
+        border: 1px solid #10B981 !important;
+        border-radius: 18px !important;
+        padding: 1.8rem 1.6rem !important;
+        text-align: center !important;
+        box-shadow: 0 10px 25px rgba(16, 185, 129, 0.25) !important;
+        position: relative !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
     }
     .taximeter-title {
-        font-size: 0.88rem;
-        text-transform: uppercase;
-        letter-spacing: 0.12em;
-        font-weight: 700;
-        color: #D1FAE5;
+        font-size: 0.88rem !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.12em !important;
+        font-weight: 700 !important;
+        color: #D1FAE5 !important;
     }
     .taximeter-fare {
-        font-family: 'JetBrains Mono', monospace;
-        font-size: 3.75rem;
-        font-weight: 800;
-        color: #FFFFFF;
-        margin: 0.15rem 0;
-        text-shadow: 0 3px 14px rgba(0, 0, 0, 0.3);
-        letter-spacing: -0.03em;
+        font-family: 'JetBrains Mono', monospace !important;
+        font-size: 3.75rem !important;
+        font-weight: 800 !important;
+        color: #FFFFFF !important;
+        margin: 0.15rem 0 !important;
+        text-shadow: 0 2px 8px rgba(0, 0, 0, 0.25) !important;
+        letter-spacing: -0.03em !important;
     }
     .taximeter-ci {
-        font-size: 0.92rem;
-        color: #ECFDF5;
-        background: rgba(0, 0, 0, 0.2);
-        display: inline-block;
-        padding: 0.38rem 0.95rem;
-        border-radius: 20px;
-        border: 1px solid rgba(255, 255, 255, 0.25);
-        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.92rem !important;
+        color: #ECFDF5 !important;
+        background: rgba(0, 0, 0, 0.25) !important;
+        display: inline-block !important;
+        padding: 0.38rem 0.95rem !important;
+        border-radius: 20px !important;
+        border: 1px solid rgba(255, 255, 255, 0.3) !important;
+        font-family: 'JetBrains Mono', monospace !important;
     }
     
-    /* Custom Button Overrides */
+    /* High-Impact Gradient Primary Buttons & Crisp Standard Buttons */
     div[data-testid="stButton"] > button {
         background: #FFFFFF !important;
         color: #0F172A !important;
@@ -565,56 +662,171 @@ else:
         font-weight: 600 !important;
         font-size: 0.85rem !important;
         padding: 0.6rem 0.85rem !important;
-        transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05) !important;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        box-shadow: 0 2px 6px rgba(15, 23, 42, 0.05) !important;
         text-align: center !important;
     }
     div[data-testid="stButton"] > button:hover {
         background: #F8FAFC !important;
-        border-color: #D97706 !important;
-        color: #B45309 !important;
+        border-color: #2563EB !important;
+        color: #2563EB !important;
         transform: translateY(-2px) !important;
-        box-shadow: 0 6px 18px rgba(217, 119, 6, 0.18) !important;
+        box-shadow: 0 4px 14px rgba(37, 99, 235, 0.15) !important;
+    }
+    div[data-testid="stButton"] > button[kind="primary"],
+    div[data-testid="stDownloadButton"] > button {
+        background: linear-gradient(135deg, #2563EB 0%, #06B6D4 100%) !important;
+        color: #FFFFFF !important;
+        border: 1px solid #2563EB !important;
+        font-weight: 700 !important;
+        box-shadow: 0 4px 14px rgba(37, 99, 235, 0.25) !important;
+    }
+    div[data-testid="stButton"] > button[kind="primary"]:hover,
+    div[data-testid="stDownloadButton"] > button:hover {
+        background: linear-gradient(135deg, #1D4ED8 0%, #0891B2 100%) !important;
+        color: #FFFFFF !important;
+        transform: translateY(-2px) !important;
+        box-shadow: 0 6px 18px rgba(37, 99, 235, 0.35) !important;
     }
     
     /* Tabs Custom Styling */
+    div[data-baseweb="tab-list"] {
+        border-bottom: 1px solid #E2E8F0 !important;
+        gap: 0.35rem !important;
+    }
     button[data-baseweb="tab"] {
         background-color: transparent !important;
-        border-radius: 8px !important;
-        color: #64748B !important;
+        border-radius: 8px 8px 0 0 !important;
+        color: #475569 !important;
         font-weight: 600 !important;
-        padding: 0.65rem 1.25rem !important;
+        padding: 0.65rem 1.2rem !important;
         font-family: 'Space Grotesk', sans-serif !important;
         font-size: 0.95rem !important;
+        border-bottom: 2px solid transparent !important;
         transition: all 0.2s ease !important;
     }
+    button[data-baseweb="tab"]:hover {
+        color: #0F172A !important;
+        background: #F1F5F9 !important;
+    }
     button[data-baseweb="tab"][aria-selected="true"] {
-        background: rgba(2, 132, 199, 0.12) !important;
-        color: #0284C7 !important;
-        border-bottom: 2px solid #0284C7 !important;
+        background: #EFF6FF !important;
+        color: #2563EB !important;
+        border-bottom: 2px solid #2563EB !important;
+        font-weight: 700 !important;
     }
     
+    /* Receipt Box */
     .receipt-box {
-        background: #FFFFFF;
-        border: 2px dashed #D97706;
-        border-radius: 16px;
-        padding: 1.8rem;
-        font-family: 'JetBrains Mono', monospace;
-        color: #0F172A;
-        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.06);
-        position: relative;
+        background: #FFFFFF !important;
+        border: 2px dashed #CBD5E1 !important;
+        border-radius: 16px !important;
+        padding: 1.8rem !important;
+        font-family: 'JetBrains Mono', monospace !important;
+        color: #0F172A !important;
+        box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06) !important;
+        position: relative !important;
+    }
+    .receipt-header {
+        text-align: center;
+        border-bottom: 1px dashed #CBD5E1 !important;
+        padding-bottom: 1rem;
+        margin-bottom: 1rem;
+    }
+    .receipt-line {
+        display: flex;
+        justify-content: space-between;
+        margin: 0.4rem 0;
+        font-size: 0.88rem;
+        color: #334155 !important;
+    }
+    .receipt-total {
+        border-top: 2px solid #CBD5E1 !important;
+        margin-top: 1rem;
+        padding-top: 0.8rem;
+        display: flex;
+        justify-content: space-between;
+        font-size: 1.25rem;
+        font-weight: 800;
+        color: #2563EB !important;
     }
     
+    /* Hub & Expanders */
     .hub-strip {
-        font-size: 0.85rem;
-        color: #475569;
-        background: #FFFFFF;
-        padding: 0.75rem 1rem;
-        border-radius: 10px;
-        border: 1px solid #E2E8F0;
-        margin-top: 0.5rem;
-        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+        font-size: 0.85rem !important;
+        color: #475569 !important;
+        background: #FFFFFF !important;
+        padding: 0.75rem 1rem !important;
+        border-radius: 10px !important;
+        border: 1px solid #CBD5E1 !important;
+        margin-top: 0.5rem !important;
+        box-shadow: 0 2px 6px rgba(15, 23, 42, 0.04) !important;
     }
+    div[data-testid="stExpander"] {
+        background-color: #FFFFFF !important;
+        border: 1px solid #CBD5E1 !important;
+        border-radius: 12px !important;
+        box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04) !important;
+    }
+    div[data-testid="stExpander"] details summary {
+        color: #0F172A !important;
+        font-weight: 700 !important;
+    }
+    
+    /* Clean Accessible Status Alerts */
+    div[data-testid="stAlert"] {
+        border-radius: 10px !important;
+        font-weight: 500 !important;
+    }
+    div[data-testid="stAlert"] [data-testid="stMarkdownContainer"] p {
+        color: inherit !important;
+    }
+    
+    /* Built-in Streamlit Metrics */
+    div[data-testid="stMetricLabel"] {
+        color: #475569 !important;
+        font-weight: 700 !important;
+        font-size: 0.85rem !important;
+    }
+    div[data-testid="stMetricValue"] {
+        color: #0F172A !important;
+        font-weight: 800 !important;
+        font-family: 'JetBrains Mono', monospace !important;
+    }
+    
+    /* Code Blocks */
+    code {
+        background: #F1F5F9 !important;
+        color: #0F172A !important;
+        border: 1px solid #CBD5E1 !important;
+        border-radius: 4px !important;
+        padding: 2px 6px !important;
+    }
+    div[data-testid="stCodeBlock"] pre {
+        background-color: #F8FAFC !important;
+        border: 1px solid #CBD5E1 !important;
+        color: #0F172A !important;
+        border-radius: 10px !important;
+    }
+    
+    /* Dataframe / Table Visibility */
+    div[data-testid="stDataFrame"] {
+        background: #FFFFFF !important;
+        border: 1px solid #CBD5E1 !important;
+        border-radius: 10px !important;
+    }
+    
+    /* Surcharge LED Indicators (Sharp & Crisp) */
+    .status-led {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        margin-right: 6px;
+    }
+    .led-green { background-color: #16A34A !important; box-shadow: none !important; }
+    .led-amber { background-color: #D97706 !important; box-shadow: none !important; }
+    .led-red { background-color: #DC2626 !important; box-shadow: none !important; }
     """
 
 st.markdown(f"""
@@ -626,41 +838,6 @@ st.markdown(f"""
     }}
     
     {theme_css}
-    
-    .receipt-header {{
-        text-align: center;
-        border-bottom: 1px dashed rgba(148, 163, 184, 0.3);
-        padding-bottom: 1rem;
-        margin-bottom: 1rem;
-    }}
-    .receipt-line {{
-        display: flex;
-        justify-content: space-between;
-        margin: 0.4rem 0;
-        font-size: 0.88rem;
-    }}
-    .receipt-total {{
-        border-top: 2px solid rgba(148, 163, 184, 0.4);
-        margin-top: 1rem;
-        padding-top: 0.8rem;
-        display: flex;
-        justify-content: space-between;
-        font-size: 1.25rem;
-        font-weight: 800;
-        color: #D97706;
-    }}
-    
-    /* Surcharge LED Indicator */
-    .status-led {{
-        display: inline-block;
-        width: 8px;
-        height: 8px;
-        border-radius: 50%;
-        margin-right: 6px;
-    }}
-    .led-green {{ background-color: #10B981; box-shadow: 0 0 8px #10B981; }}
-    .led-amber {{ background-color: #F59E0B; box-shadow: 0 0 8px #F59E0B; }}
-    .led-red {{ background-color: #EF4444; box-shadow: 0 0 8px #EF4444; }}
 </style>
 """, unsafe_allow_html=True)
 
@@ -1028,7 +1205,7 @@ with st.sidebar.expander("🔍 Real-Time NYC Address Geocoder", expanded=False):
                 
     if "geo_results" in st.session_state and st.session_state["geo_results"]:
         for r_i, r in enumerate(st.session_state["geo_results"]):
-            st.markdown(f"**{r['name']}**  \n<span style='font-size: 0.75rem; color: #94A3B8;'>{r['full_addr'][:75]}...</span>", unsafe_allow_html=True)
+            st.markdown(f"**{r['name']}**  \n<span style='font-size: 0.75rem; color: {'#94A3B8' if is_night_theme else '#475569'};'>{r['full_addr'][:75]}...</span>", unsafe_allow_html=True)
             col_gp, col_gd = st.sidebar.columns(2)
             with col_gp:
                 if st.button("📍 Set Pickup", key=f"btn_set_p_{r_i}", use_container_width=True):
@@ -1243,7 +1420,7 @@ with m_cols[0]:
     st.markdown(f"""
     <div class="glass-card">
         <div class="metric-label">Haversine Distance</div>
-        <div class="metric-number">{distance_km:.2f} <span style="font-size: 1rem; color: #94A3B8;">km</span></div>
+        <div class="metric-number">{distance_km:.2f} <span style="font-size: 1rem; color: {'#94A3B8' if is_night_theme else '#64748B'};">km</span></div>
         <div class="metric-sub">{distance_km * 0.621371:.2f} miles great-circle arc</div>
     </div>
     """, unsafe_allow_html=True)
@@ -1252,7 +1429,7 @@ with m_cols[1]:
     st.markdown(f"""
     <div class="glass-card">
         <div class="metric-label">Actual Street Driving (OSRM)</div>
-        <div class="metric-number" style="color: {'#38BDF8' if is_night_theme else '#0284C7'};">{road_dist_km:.2f} <span style="font-size: 1rem; color: #94A3B8;">km</span></div>
+        <div class="metric-number" style="color: {'#38BDF8' if is_night_theme else '#0284C7'};">{road_dist_km:.2f} <span style="font-size: 1rem; color: {'#94A3B8' if is_night_theme else '#64748B'};">km</span></div>
         <div class="metric-sub">⏱️ Live Driving ETA: <b>~{road_dur_mins:.0f} mins</b> (Turn-by-Turn)</div>
     </div>
     """, unsafe_allow_html=True)
@@ -1280,7 +1457,7 @@ with m_cols[3]:
     st.markdown(f"""
     <div class="glass-card">
         <div class="metric-label">Temporal & Vector Context</div>
-        <div class="metric-number" style="font-size: 1.55rem; color: {'#38BDF8' if is_night_theme else '#0284C7'};">{pickup_dt.strftime('%A')} <span style="font-size: 1rem; color: #94A3B8;">{compass_str} ({bearing_deg:.0f}°)</span></div>
+        <div class="metric-number" style="font-size: 1.55rem; color: {'#38BDF8' if is_night_theme else '#0284C7'};">{pickup_dt.strftime('%A')} <span style="font-size: 1rem; color: {'#94A3B8' if is_night_theme else '#64748B'};">{compass_str} ({bearing_deg:.0f}°)</span></div>
         <div class="metric-sub">{passengers} Passenger{'s' if passengers > 1 else ''} • {trip_time.strftime('%I:%M %p')}</div>
     </div>
     """, unsafe_allow_html=True)
@@ -1333,13 +1510,13 @@ with tab_main:
     if toggle_quick_compare:
         st.markdown(f"""
         <div style="display: flex; gap: 0.8rem; flex-wrap: wrap; margin: 0.6rem 0 1rem 0; padding: 0.8rem 1.2rem; background: {card_bg}; border-radius: 14px; border: 1px solid {card_border}; box-shadow: 0 4px 14px rgba(0,0,0,0.05); align-items: center; justify-content: space-between;">
-            <div><span style="color: {card_text}; font-size: 0.72rem; text-transform: uppercase; font-weight: 700;">PyTorch DNN:</span> <b style="color: #10B981; font-size: 1.15rem; font-family: 'JetBrains Mono';">${pred_fare:.2f}</b></div>
+            <div><span style="color: {card_text}; font-size: 0.72rem; text-transform: uppercase; font-weight: 700;">PyTorch DNN:</span> <b style="color: {'#10B981' if is_night_theme else '#16A34A'}; font-size: 1.15rem; font-family: 'JetBrains Mono';">${pred_fare:.2f}</b></div>
             <div style="border-left: 1px solid {card_border}; height: 22px;"></div>
-            <div><span style="color: {card_text}; font-size: 0.72rem; text-transform: uppercase; font-weight: 700;">LightGBM:</span> <b style="color: #38BDF8; font-size: 1.15rem; font-family: 'JetBrains Mono';">${lgb_pred:.2f}</b> <span style="font-size: 0.75rem; color: {'#10B981' if lgb_pred <= pred_fare else '#EF4444'};">({lgb_pred - pred_fare:+.2f})</span></div>
+            <div><span style="color: {card_text}; font-size: 0.72rem; text-transform: uppercase; font-weight: 700;">LightGBM:</span> <b style="color: {'#38BDF8' if is_night_theme else '#0284C7'}; font-size: 1.15rem; font-family: 'JetBrains Mono';">${lgb_pred:.2f}</b> <span style="font-size: 0.75rem; color: {'#10B981' if lgb_pred <= pred_fare else '#DC2626'};">({lgb_pred - pred_fare:+.2f})</span></div>
             <div style="border-left: 1px solid {card_border}; height: 22px;"></div>
-            <div><span style="color: {card_text}; font-size: 0.72rem; text-transform: uppercase; font-weight: 700;">Linear OLS:</span> <b style="color: #F59E0B; font-size: 1.15rem; font-family: 'JetBrains Mono';">${lr_pred:.2f}</b> <span style="font-size: 0.75rem; color: {'#10B981' if lr_pred <= pred_fare else '#EF4444'};">({lr_pred - pred_fare:+.2f})</span></div>
+            <div><span style="color: {card_text}; font-size: 0.72rem; text-transform: uppercase; font-weight: 700;">Linear OLS:</span> <b style="color: {'#F59E0B' if is_night_theme else '#D97706'}; font-size: 1.15rem; font-family: 'JetBrains Mono';">${lr_pred:.2f}</b> <span style="font-size: 0.75rem; color: {'#10B981' if lr_pred <= pred_fare else '#DC2626'};">({lr_pred - pred_fare:+.2f})</span></div>
             <div style="border-left: 1px solid {card_border}; height: 22px;"></div>
-            <div><span style="color: {card_text}; font-size: 0.72rem; text-transform: uppercase; font-weight: 700;">TLC Regulatory:</span> <b style="color: {'#E2E8F0' if is_night_theme else '#0F172A'}; font-size: 1.15rem; font-family: 'JetBrains Mono';">${est_rule_fare:.2f}</b> <span style="font-size: 0.75rem; color: {'#10B981' if est_rule_fare <= pred_fare else '#EF4444'};">({est_rule_fare - pred_fare:+.2f})</span></div>
+            <div><span style="color: {card_text}; font-size: 0.72rem; text-transform: uppercase; font-weight: 700;">TLC Regulatory:</span> <b style="color: {'#E2E8F0' if is_night_theme else '#0F172A'}; font-size: 1.15rem; font-family: 'JetBrains Mono';">${est_rule_fare:.2f}</b> <span style="font-size: 0.75rem; color: {'#10B981' if est_rule_fare <= pred_fare else '#DC2626'};">({est_rule_fare - pred_fare:+.2f})</span></div>
         </div>
         """, unsafe_allow_html=True)
 
@@ -1356,7 +1533,7 @@ with tab_main:
                     x=diag_layers,
                     y=diag_means,
                     name="Mean ReLU Activation",
-                    marker_color="#10B981",
+                    marker_color="#10B981" if is_night_theme else "#16A34A",
                     text=[f"{v:.3f}" for v in diag_means],
                     textposition="auto"
                 ))
@@ -1373,7 +1550,7 @@ with tab_main:
             with col_diag2:
                 st.markdown(f"""
                 <div style="background: {card_bg}; padding: 0.9rem 1.1rem; border-radius: 12px; border: 1px solid {card_border}; font-size: 0.82rem; color: {chart_font_color}; box-shadow: 0 4px 12px rgba(0,0,0,0.04);">
-                    <div>⚡ <b>Inference Latency:</b> <code style="color: #38BDF8;">{infer_duration_ms:.2f} ms</code></div>
+                    <div>⚡ <b>Inference Latency:</b> <code style="color: {'#38BDF8' if is_night_theme else '#0284C7'};">{infer_duration_ms:.2f} ms</code></div>
                     <div style="margin-top: 0.35rem;">🎯 <b>L1 Active Neurons:</b> <code>{layer_activations.get('L1_active_pct', 0):.1f}%</code> (Sparsity: {100 - layer_activations.get('L1_active_pct', 0):.1f}%)</div>
                     <div style="margin-top: 0.35rem;">🎯 <b>L2 Active Neurons:</b> <code>{layer_activations.get('L2_active_pct', 0):.1f}%</code> (Sparsity: {100 - layer_activations.get('L2_active_pct', 0):.1f}%)</div>
                     <div style="margin-top: 0.35rem;">🎯 <b>L3 Active Neurons:</b> <code>{layer_activations.get('L3_active_pct', 0):.1f}%</code> (Sparsity: {100 - layer_activations.get('L3_active_pct', 0):.1f}%)</div>
@@ -1384,7 +1561,7 @@ with tab_main:
     col_hud, col_map = st.columns([1.05, 1.35])
     
     with col_hud:
-        jfk_badge_html = '<div style="background: rgba(245, 158, 11, 0.25); border: 1px solid #F59E0B; color: #FDE68A; padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 700; margin-bottom: 0.5rem; display: inline-block;">✈️ JFK AIRPORT FLAT-RATE REGIME ($70.00)</div>' if toggle_jfk_flat else ''
+        jfk_badge_html = f'<div style="background: {"rgba(245, 158, 11, 0.25)" if is_night_theme else "#FEF3C7"}; border: 1px solid {"#F59E0B" if is_night_theme else "#D97706"}; color: {"#FDE68A" if is_night_theme else "#92400E"}; padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 700; margin-bottom: 0.5rem; display: inline-block;">✈️ JFK AIRPORT FLAT-RATE REGIME ($70.00)</div>' if toggle_jfk_flat else ''
         
         tip_notice_html = f'<div style="font-size: 0.82rem; color: #FDE68A; margin-top: -0.1rem; margin-bottom: 0.4rem;">★ Includes 18% Gratuity (Base: ${pred_fare:.2f} + Tip: ${meter_display_fare - pred_fare:.2f})</div>' if toggle_tip else ''
 
@@ -1624,10 +1801,10 @@ with tab_main:
         with r_cols[c_i]:
             st.markdown(f"""
             <div style="background: {card_bg}; padding: 0.85rem 1rem; border-radius: 12px; border: 1px solid {card_border}; box-shadow: 0 4px 12px rgba(0,0,0,0.04);">
-                <div style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700; color: #F59E0B;">🚖 Medallion #{cab['medallion']}</div>
+                <div style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700; color: {'#F59E0B' if is_night_theme else '#D97706'};">🚖 Medallion #{cab['medallion']}</div>
                 <div style="font-weight: 700; font-size: 0.92rem; color: {'#F1F5F9' if is_night_theme else '#0F172A'}; margin-top: 0.2rem;">{cab['model']}</div>
                 <div style="font-size: 0.8rem; color: {card_text}; margin-top: 0.2rem;">Driver: <b>{cab['driver']}</b> ({cab['rating']})</div>
-                <div style="font-size: 0.85rem; color: #10B981; font-weight: 700; margin-top: 0.35rem;">⚡ {cab['dist_m']}m away • ETA: ~{cab['eta_min']} min</div>
+                <div style="font-size: 0.85rem; color: {'#10B981' if is_night_theme else '#16A34A'}; font-weight: 700; margin-top: 0.35rem;">⚡ {cab['dist_m']}m away • ETA: ~{cab['eta_min']} min</div>
             </div>
             """, unsafe_allow_html=True)
     with r_cols[3]:
@@ -1715,10 +1892,10 @@ with tab_battle:
             orientation="h",
             color="Type",
             color_discrete_map={
-                "Deep Learning": "#10B981",
-                "Gradient Boosting": "#38BDF8",
-                "Linear Baseline": "#F59E0B",
-                "Regulatory Rule": "#94A3B8"
+                "Deep Learning": "#10B981" if is_night_theme else "#16A34A",
+                "Gradient Boosting": "#38BDF8" if is_night_theme else "#0284C7",
+                "Linear Baseline": "#F59E0B" if is_night_theme else "#D97706",
+                "Regulatory Rule": "#94A3B8" if is_night_theme else "#475569"
             },
             text="Predicted Fare ($)"
         )
@@ -1744,21 +1921,21 @@ with tab_battle:
             theta=categories,
             fill='toself',
             name='PyTorch DNN',
-            line_color='#10B981'
+            line_color='#10B981' if is_night_theme else '#16A34A'
         ))
         fig_radar.add_trace(go.Scatterpolar(
             r=[0.842, 0.80, 0.94, 0.90, 0.85],
             theta=categories,
             fill='toself',
             name='LightGBM',
-            line_color='#38BDF8'
+            line_color='#38BDF8' if is_night_theme else '#0284C7'
         ))
         fig_radar.add_trace(go.Scatterpolar(
             r=[0.605, 0.40, 0.99, 0.30, 0.45],
             theta=categories,
             fill='toself',
             name='OLS Linear',
-            line_color='#F59E0B'
+            line_color='#F59E0B' if is_night_theme else '#D97706'
         ))
         
         fig_radar.update_layout(
@@ -1814,8 +1991,8 @@ with tab_whatif:
             title="Predicted Fare vs. Hour of Day (24-Hour Diurnal Profile)",
             labels={"x": "Hour of Day (0 = 12 AM Midnight, 23 = 11 PM)", "y": "Estimated Fare ($ USD)"}
         )
-        fig_sim.add_vline(x=trip_time.hour, line_dash="dash", line_color="#F59E0B", annotation_text="Selected Time")
-        fig_sim.update_traces(line_color="#38BDF8", marker=dict(size=7, color="#10B981"))
+        fig_sim.add_vline(x=trip_time.hour, line_dash="dash", line_color="#F59E0B" if is_night_theme else "#D97706", annotation_text="Selected Time")
+        fig_sim.update_traces(line_color="#38BDF8" if is_night_theme else "#0284C7", marker=dict(size=7, color="#10B981" if is_night_theme else "#16A34A"))
         fig_sim.update_layout(
             paper_bgcolor='rgba(0,0,0,0)',
             plot_bgcolor='rgba(0,0,0,0)',
@@ -1923,9 +2100,9 @@ Thank you for riding NYC Yellow Cab!
     with col_rec1:
         st.markdown(f"""<div class="receipt-box">
 <div class="receipt-header">
-    <div style="font-size: 1.15rem; font-weight: 800; color: #FDE68A; letter-spacing: 0.05em;">NYC TAXI & LIMOUSINE COMMISSION</div>
-    <div style="font-size: 0.8rem; color: #94A3B8;">MEDALLION NO: NYC-TAXI-4192 &nbsp;|&nbsp; DL: 2341019538</div>
-    <div style="font-size: 0.8rem; color: #94A3B8;">{pickup_dt.strftime('%B %d, %Y  •  %I:%M %p')}</div>
+    <div style="font-size: 1.15rem; font-weight: 800; color: {'#FDE68A' if is_night_theme else '#0F172A'}; letter-spacing: 0.05em;">NYC TAXI & LIMOUSINE COMMISSION</div>
+    <div style="font-size: 0.8rem; color: {'#94A3B8' if is_night_theme else '#475569'};">MEDALLION NO: NYC-TAXI-4192 &nbsp;|&nbsp; DL: 2341019538</div>
+    <div style="font-size: 0.8rem; color: {'#94A3B8' if is_night_theme else '#475569'};">{pickup_dt.strftime('%B %d, %Y  •  %I:%M %p')}</div>
 </div>
 <div class="receipt-line">
     <span>Pickup:</span>
@@ -1943,7 +2120,7 @@ Thank you for riding NYC Yellow Cab!
     <span>Occupancy:</span>
     <span>{passengers} Passenger{'s' if passengers > 1 else ''}</span>
 </div>
-<div style="border-top: 1px dashed rgba(255, 255, 255, 0.15); margin: 0.8rem 0;"></div>
+<div style="border-top: 1px dashed {'rgba(255, 255, 255, 0.15)' if is_night_theme else '#CBD5E1'}; margin: 0.8rem 0;"></div>
 <div class="receipt-line">
     <span>Initial Base Flag Drop</span>
     <span>$2.50</span>
@@ -1962,7 +2139,7 @@ Thank you for riding NYC Yellow Cab!
 </div>
 <div class="receipt-line">
     <span>Sub-Total (DNN Predictor)</span>
-    <span style="font-weight: 700; color: #38BDF8;">${pred_fare:.2f}</span>
+    <span style="font-weight: 700; color: {'#38BDF8' if is_night_theme else '#2563EB'};">${pred_fare:.2f}</span>
 </div>
 <div class="receipt-line">
     <span>Gratuity ({tip_choice}%)</span>
@@ -1970,9 +2147,9 @@ Thank you for riding NYC Yellow Cab!
 </div>
 <div class="receipt-total">
     <span>TOTAL AMOUNT</span>
-    <span>${total_fare_with_tip:.2f}</span>
+    <span style="color: {'#F59E0B' if is_night_theme else '#2563EB'}; font-weight: 800;">${total_fare_with_tip:.2f}</span>
 </div>
-<div style="text-align: center; margin-top: 1.2rem; font-size: 0.72rem; color: #64748B;">
+<div style="text-align: center; margin-top: 1.2rem; font-size: 0.72rem; color: {'#64748B' if is_night_theme else '#475569'};">
     ★ AUTH CODE: TLC-DNN-{int(pred_fare*100)} ★<br>
     Siksha 'O' Anusandhan (ITER) • Centre for AI & ML
 </div>
@@ -2029,9 +2206,9 @@ with tab_theory:
     huber_vals = np.where(np.abs(errors) <= delta_val, 0.5 * (errors ** 2), delta_val * (np.abs(errors) - 0.5 * delta_val))
     
     fig_loss = go.Figure()
-    fig_loss.add_trace(go.Scatter(x=errors, y=mse_vals, mode="lines", name="Mean Squared Error (MSE)", line=dict(color="#EF4444", dash="dash")))
-    fig_loss.add_trace(go.Scatter(x=errors, y=mae_vals, mode="lines", name="Mean Absolute Error (MAE)", line=dict(color="#38BDF8", dash="dot")))
-    fig_loss.add_trace(go.Scatter(x=errors, y=huber_vals, mode="lines", name=f"Huber Loss (δ={delta_val:.1f})", line=dict(color="#10B981", width=3)))
+    fig_loss.add_trace(go.Scatter(x=errors, y=mse_vals, mode="lines", name="Mean Squared Error (MSE)", line=dict(color="#EF4444" if is_night_theme else "#DC2626", dash="dash")))
+    fig_loss.add_trace(go.Scatter(x=errors, y=mae_vals, mode="lines", name="Mean Absolute Error (MAE)", line=dict(color="#38BDF8" if is_night_theme else "#0284C7", dash="dot")))
+    fig_loss.add_trace(go.Scatter(x=errors, y=huber_vals, mode="lines", name=f"Huber Loss (δ={delta_val:.1f})", line=dict(color="#10B981" if is_night_theme else "#16A34A", width=3)))
     
     fig_loss.update_layout(
         paper_bgcolor='rgba(0,0,0,0)',
