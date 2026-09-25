@@ -49,6 +49,7 @@ sys.path.append(SRC_DIR)
 from feature_engineering import extract_features, haversine_distance, FEATURE_COLS
 from dnn_model import TaxiFareDNN
 from geocoding import geocode_address, is_in_nyc_bbox
+from routing import get_road_route, format_duration, calculate_haversine_km
 
 # Configure Page
 st.set_page_config(
@@ -1189,39 +1190,21 @@ def get_live_nyc_weather():
         pass
     return {"temp_c": 16.0, "temp_f": 60.8, "desc": "Standard NYC Conditions", "mult": 1.00, "wind": 12.0, "icon": "🌤️", "status": "DEFAULT"}
 
-@st.cache_data(ttl=1800)
+@st.cache_data(ttl=1800, show_spinner=False)
+def fetch_cached_road_route(p_lat: float, p_lon: float, d_lat: float, d_lon: float) -> dict:
+    """
+    Cached wrapper for real OSRM road routing between normalized coordinates.
+    Rounds coordinates to 5 decimal places (~1.1 meter resolution) to optimize cache hits.
+    """
+    norm_p_lat = round(float(p_lat), 5)
+    norm_p_lon = round(float(p_lon), 5)
+    norm_d_lat = round(float(d_lat), 5)
+    norm_d_lon = round(float(d_lon), 5)
+    return get_road_route(norm_p_lat, norm_p_lon, norm_d_lat, norm_d_lon)
+
 def get_live_osrm_route(p_lat, p_lon, d_lat, d_lon):
-    """Fetches real-world turn-by-turn road driving directions and distance via OSRM."""
-    try:
-        url = f"http://router.project-osrm.org/route/v1/driving/{p_lon},{p_lat};{d_lon},{d_lat}?overview=full&geometries=geojson"
-        r = requests.get(url, timeout=3.0)
-        if r.status_code == 200:
-            res = r.json()
-            if "routes" in res and len(res["routes"]) > 0:
-                route = res["routes"][0]
-                dist_km = round(route["distance"] / 1000.0, 2)
-                dur_mins = round(route["duration"] / 60.0, 1)
-                coords = route["geometry"]["coordinates"] # [lon, lat]
-                return {
-                    "distance_km": dist_km,
-                    "duration_mins": dur_mins,
-                    "coordinates": coords,
-                    "status": "LIVE_ROUTING"
-                }
-    except Exception:
-        pass
-    # Fallback to straight-line interpolation with Manhattan road factor
-    steps = 30
-    lats = np.linspace(p_lat, d_lat, steps)
-    lons = np.linspace(p_lon, d_lon, steps)
-    coords = [[float(lo), float(la)] for lo, la in zip(lons, lats)]
-    h_dist = haversine_distance(p_lat, p_lon, d_lat, d_lon)
-    return {
-        "distance_km": round(h_dist * 1.28, 2),
-        "duration_mins": round(max(3.0, (h_dist * 1.28 / 18.0) * 60), 1),
-        "coordinates": coords,
-        "status": "ESTIMATED_ROAD_FACTOR"
-    }
+    """Backwards-compatible wrapper calling fetch_cached_road_route without fake multipliers."""
+    return fetch_cached_road_route(p_lat, p_lon, d_lat, d_lon)
 
 @st.cache_data(ttl=3600)
 def search_nyc_address(query):
@@ -1783,10 +1766,19 @@ dir_idx = int(round(bearing_deg / 22.5)) % 16
 compass_str = compass_dirs[dir_idx]
 
 # Real-Time Road Routing and Fleet Radar Telemetry
-route_info = get_live_osrm_route(p_lat, p_lon, d_lat, d_lon)
-road_dist_km = route_info["distance_km"]
-road_dur_mins = route_info["duration_mins"]
-road_coords = route_info["coordinates"]
+route_info = fetch_cached_road_route(p_lat, p_lon, d_lat, d_lon)
+is_route_success = (route_info.get("status") == "success" and route_info.get("distance_km") is not None)
+road_dist_km = route_info.get("distance_km")
+road_dur_mins = route_info.get("duration_minutes")
+road_dur_fmt = route_info.get("duration_formatted", "Duration unavailable")
+road_coords = route_info.get("route_geometry", [])
+road_air_ratio = route_info.get("road_air_ratio")
+routing_provider = route_info.get("provider", "OSRM (Open Source Routing Machine)")
+route_status_badge = (
+    '<span style="color: #10B981; font-weight: 700;">✓ Road route available</span>'
+    if is_route_success
+    else '<span style="color: #F59E0B; font-weight: 700;">⚠️ Real road route unavailable</span>'
+)
 nearby_cabs = get_nearby_cabs(p_lat, p_lon)
 
 # =============================================================================
@@ -1804,7 +1796,7 @@ disp_d_addr = (
 )
 
 st.markdown(f"""
-<div style="background: {card_bg}; border: 1px solid {card_border}; border-radius: 16px; padding: 1.1rem 1.4rem; margin-bottom: 1.2rem; box-shadow: 0 4px 18px rgba(0,0,0,0.05); display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem;">
+<div style="background: {card_bg}; border: 1px solid {card_border}; border-radius: 16px; padding: 1.1rem 1.4rem; margin-bottom: 1rem; box-shadow: 0 4px 18px rgba(0,0,0,0.05); display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem;">
     <div style="flex: 1 1 280px; min-width: 240px;">
         <div style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: {'#10B981' if is_night_theme else '#16A34A'}; margin-bottom: 0.25rem;">
             🟢 📍 Pickup Location
@@ -1821,7 +1813,7 @@ st.markdown(f"""
         <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; font-weight: 700; color: {'#38BDF8' if is_night_theme else '#2563EB'}; white-space: nowrap;">
             {distance_km:.1f} km
         </div>
-        <div style="font-size: 0.7rem; color: {'#94A3B8' if is_night_theme else '#64748B'};">haversine</div>
+        <div style="font-size: 0.7rem; color: {'#94A3B8' if is_night_theme else '#64748B'};">air distance</div>
     </div>
     <div style="flex: 1 1 280px; min-width: 240px;">
         <div style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: {'#F43F5E' if is_night_theme else '#DC2626'}; margin-bottom: 0.25rem;">
@@ -1849,6 +1841,51 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # =============================================================================
+# REAL ROAD ROUTE & DRIVING TELEMETRY CARD (FEATURE #2)
+# =============================================================================
+road_dist_display = f"{road_dist_km:.2f} km" if is_route_success else "Unavailable"
+ratio_display = f"{road_air_ratio:.2f}×" if (is_route_success and road_air_ratio is not None) else "—"
+
+st.markdown(f"""
+<div style="background: {card_bg}; border: 1px solid {card_border}; border-radius: 16px; padding: 1.2rem 1.4rem; margin-bottom: 1.2rem; box-shadow: 0 4px 18px rgba(0,0,0,0.05);">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.8rem; border-bottom: 1px solid {card_border}; padding-bottom: 0.5rem; flex-wrap: wrap; gap: 0.5rem;">
+        <div style="font-size: 0.95rem; font-weight: 700; color: {'#38BDF8' if is_night_theme else '#0284C7'}; text-transform: uppercase; letter-spacing: 0.06em;">
+            🗺️ Real Road Route & Driving Telemetry
+        </div>
+        <div style="font-size: 0.82rem;">
+            {route_status_badge}
+        </div>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 0.75rem;">
+        <div style="background: {'rgba(15, 23, 42, 0.45)' if is_night_theme else '#F8FAFC'}; padding: 0.75rem 1rem; border-radius: 12px; border: 1px solid {card_border};">
+            <div style="font-size: 0.72rem; text-transform: uppercase; font-weight: 600; color: {card_text}; letter-spacing: 0.05em;">Air Distance (DNN Input)</div>
+            <div style="font-family: 'JetBrains Mono', monospace; font-size: 1.45rem; font-weight: 700; color: {'#F1F5F9' if is_night_theme else '#0F172A'}; margin-top: 0.2rem;">{distance_km:.2f} <span style="font-size: 0.85rem; color: {card_text};">km</span></div>
+            <div style="font-size: 0.75rem; color: {card_text};">Great-circle geodesic arc</div>
+        </div>
+        <div style="background: {'rgba(15, 23, 42, 0.45)' if is_night_theme else '#F8FAFC'}; padding: 0.75rem 1rem; border-radius: 12px; border: 1px solid {card_border};">
+            <div style="font-size: 0.72rem; text-transform: uppercase; font-weight: 600; color: {'#38BDF8' if is_night_theme else '#0284C7'}; letter-spacing: 0.05em;">Actual Road Distance</div>
+            <div style="font-family: 'JetBrains Mono', monospace; font-size: 1.45rem; font-weight: 700; color: {'#38BDF8' if is_night_theme else '#0284C7'}; margin-top: 0.2rem;">{road_dist_display}</div>
+            <div style="font-size: 0.75rem; color: {card_text};">Turn-by-turn road network</div>
+        </div>
+        <div style="background: {'rgba(15, 23, 42, 0.45)' if is_night_theme else '#F8FAFC'}; padding: 0.75rem 1rem; border-radius: 12px; border: 1px solid {card_border};">
+            <div style="font-size: 0.72rem; text-transform: uppercase; font-weight: 600; color: {card_text}; letter-spacing: 0.05em;">Road / Air Ratio</div>
+            <div style="font-family: 'JetBrains Mono', monospace; font-size: 1.45rem; font-weight: 700; color: {'#F59E0B' if is_night_theme else '#D97706'}; margin-top: 0.2rem;">{ratio_display}</div>
+            <div style="font-size: 0.75rem; color: {card_text};">Informational geometry ratio</div>
+        </div>
+        <div style="background: {'rgba(15, 23, 42, 0.45)' if is_night_theme else '#F8FAFC'}; padding: 0.75rem 1rem; border-radius: 12px; border: 1px solid {card_border};">
+            <div style="font-size: 0.72rem; text-transform: uppercase; font-weight: 600; color: {'#10B981' if is_night_theme else '#16A34A'}; letter-spacing: 0.05em;">Estimated Driving Time</div>
+            <div style="font-family: 'JetBrains Mono', monospace; font-size: 1.45rem; font-weight: 700; color: {'#10B981' if is_night_theme else '#16A34A'}; margin-top: 0.2rem;">{road_dur_fmt}</div>
+            <div style="font-size: 0.75rem; color: {card_text};">Routing API live ETA</div>
+        </div>
+    </div>
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem; font-size: 0.76rem; color: {card_text};">
+        <div>📡 <b>Routing Provider:</b> <code style="color: {'#38BDF8' if is_night_theme else '#0284C7'};">{routing_provider}</code></div>
+        <div>ℹ️ <i>Current DNN was trained using the original feature schema. Road distance is currently used for routing and trip intelligence.</i></div>
+    </div>
+</div>
+""", unsafe_allow_html=True)
+
+# =============================================================================
 # KEY SPATIAL METRICS ROW
 # =============================================================================
 m_cols = st.columns(4)
@@ -1856,18 +1893,25 @@ m_cols = st.columns(4)
 with m_cols[0]:
     st.markdown(f"""
     <div class="glass-card">
-        <div class="metric-label">Haversine Distance</div>
+        <div class="metric-label">Air Distance (DNN Input)</div>
         <div class="metric-number">{distance_km:.2f} <span style="font-size: 1rem; color: {'#94A3B8' if is_night_theme else '#64748B'};">km</span></div>
         <div class="metric-sub">{distance_km * 0.621371:.2f} miles great-circle arc</div>
     </div>
     """, unsafe_allow_html=True)
 
 with m_cols[1]:
+    if is_route_success and road_dist_km is not None:
+        road_num_html = f"{road_dist_km:.2f} <span style=\"font-size: 1rem; color: {'#94A3B8' if is_night_theme else '#64748B'};\">km</span>"
+        road_sub_html = f"⏱️ Live Driving ETA: <b>~{road_dur_fmt}</b> ({road_air_ratio:.2f}× air ratio)"
+    else:
+        road_num_html = f"<span style=\"font-size: 1.25rem; color: {'#F59E0B' if is_night_theme else '#D97706'};\">⚠️ Unavailable</span>"
+        road_sub_html = "Routing unavailable — duration estimate unavailable"
+
     st.markdown(f"""
     <div class="glass-card">
         <div class="metric-label">Actual Street Driving (OSRM)</div>
-        <div class="metric-number" style="color: {'#38BDF8' if is_night_theme else '#0284C7'};">{road_dist_km:.2f} <span style="font-size: 1rem; color: {'#94A3B8' if is_night_theme else '#64748B'};">km</span></div>
-        <div class="metric-sub">⏱️ Live Driving ETA: <b>~{road_dur_mins:.0f} mins</b> (Turn-by-Turn)</div>
+        <div class="metric-number" style="color: {'#38BDF8' if is_night_theme else '#0284C7'};">{road_num_html}</div>
+        <div class="metric-sub">{road_sub_html}</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -2129,32 +2173,24 @@ with tab_main:
                 auto_highlight=True
             )
             
-            road_path_df = pd.DataFrame([{
-                "path": road_coords,
-                "name": "OSRM Street Route"
-            }])
-            road_path_layer = pdk.Layer(
-                "PathLayer",
-                data=road_path_df,
-                get_path="path",
-                get_color=[56, 189, 248, 220] if is_night_theme else [2, 132, 199, 220],
-                width_scale=20,
-                width_min_pixel_width=4,
-                pickable=True
-            )
-            cabs_df = pd.DataFrame([
-                {"lat": c["lat"], "lon": c["lon"], "name": f"🚖 Available Cab #{c['medallion']} ({c['dist_m']}m away, ETA {c['eta_min']}m)"}
-                for c in nearby_cabs
-            ])
-            cabs_layer = pdk.Layer(
-                "ScatterplotLayer",
-                data=cabs_df,
-                get_position=["lon", "lat"],
-                get_fill_color=[245, 158, 11, 240],
-                get_radius=60,
-                pickable=True
-            )
-            deck_layers = [arc_layer, column_layer, road_path_layer, cabs_layer] if toggle_3d_arc else [road_path_layer, column_layer, cabs_layer]
+            if is_route_success and len(road_coords) >= 2:
+                road_path_df = pd.DataFrame([{
+                    "path": road_coords,
+                    "name": "OSRM Real Road Route"
+                }])
+                road_path_layer = pdk.Layer(
+                    "PathLayer",
+                    data=road_path_df,
+                    get_path="path",
+                    get_color=[56, 189, 248, 220] if is_night_theme else [2, 132, 199, 220],
+                    width_scale=20,
+                    width_min_pixel_width=4,
+                    pickable=True
+                )
+                deck_layers = [arc_layer, column_layer, road_path_layer, cabs_layer] if toggle_3d_arc else [road_path_layer, column_layer, cabs_layer]
+            else:
+                st.caption("⚠️ Real road route unavailable — rendering geodesic direct trajectory.")
+                deck_layers = [arc_layer, column_layer, cabs_layer] if toggle_3d_arc else [column_layer, cabs_layer]
             
             deck = pdk.Deck(
                 layers=deck_layers,
@@ -2167,14 +2203,24 @@ with tab_main:
         else:
             # High-Resolution Plotly Map
             fig_map = go.Figure()
-            # Add trajectory road line (actual street turns)
-            fig_map.add_trace(go.Scattermapbox(
-                lat=[c[1] for c in road_coords],
-                lon=[c[0] for c in road_coords],
-                mode="lines",
-                line=dict(width=5, color="#38BDF8" if is_night_theme else "#0284C7"),
-                name="OSRM Street Route"
-            ))
+            if is_route_success and len(road_coords) >= 2:
+                # Add trajectory road line (actual street turns)
+                fig_map.add_trace(go.Scattermapbox(
+                    lat=[c[1] for c in road_coords],
+                    lon=[c[0] for c in road_coords],
+                    mode="lines",
+                    line=dict(width=5, color="#38BDF8" if is_night_theme else "#0284C7"),
+                    name="OSRM Street Route"
+                ))
+            else:
+                st.caption("⚠️ Real road route unavailable — rendering direct connection.")
+                fig_map.add_trace(go.Scattermapbox(
+                    lat=[p_lat, d_lat],
+                    lon=[p_lon, d_lon],
+                    mode="lines",
+                    line=dict(width=3, color="#94A3B8", dash="dash"),
+                    name="Geodesic Direct (Road Unavailable)"
+                ))
             # Add nearby available cabs
             fig_map.add_trace(go.Scattermapbox(
                 lat=[c["lat"] for c in nearby_cabs],
@@ -2730,8 +2776,8 @@ with tab_viz:
 # TAB 7: AUTOMATED TEST SUITE RUNNER
 # -----------------------------------------------------------------------------
 with tab_test:
-    st.markdown("### 🧪 Automated Deployment & Geocoding Verification Test Suite")
-    st.markdown("Executes `app/test_deployment.py` to validate checkpoint integrity, scaler transformations, real address geocoding, and inference boundaries across 10 operational test scenarios:")
+    st.markdown("### 🧪 Automated Deployment, Geocoding & Road Routing Verification Test Suite")
+    st.markdown("Executes `app/test_deployment.py` to validate checkpoint integrity, scaler transformations, real address geocoding, real road routing, and inference boundaries across 17 operational test scenarios:")
     
     toggle_live_telemetry = st.toggle(
         "⚡ Extended Diagnostics & Telemetry Assertion Logs",
@@ -2747,7 +2793,7 @@ with tab_test:
         if toggle_live_telemetry:
             st.code(res.stdout, language="bash")
         if res.returncode == 0:
-            st.success("✅ All 10 Deployment & Geocoding Validation Tests Passed Successfully (100% Pass Rate)!")
+            st.success("✅ All 17 Deployment, Geocoding & Road Routing Validation Tests Passed Successfully (100% Pass Rate)!")
         else:
             st.error("❌ Some deployment tests encountered issues.")
 

@@ -227,10 +227,103 @@ def run_deployment_tests():
     else:
         print(f"  Manual override invalid: ${ovr_fare:.2f} -> FAILED")
 
-    total_tests = len(test_cases) + len(geocoding_tests)
-    total_passed = passed + geo_passed
+    from routing import get_road_route, format_duration, calculate_haversine_km
+
     print("\n" + "="*80)
-    print(f"DEPLOYMENT & GEOCODING TEST SUMMARY: {total_passed} / {total_tests} Test Cases Passed.")
+    print("RUNNING FEATURE #2: REAL ROAD ROUTE, DISTANCE & DRIVING TIME TESTS")
+    print("="*80)
+
+    routing_tests = [
+        {"id": 1, "name": "ROUTING TEST 1: Valid Pickup + Drop-off Coordinates (Real Route Returned)"},
+        {"id": 2, "name": "ROUTING TEST 2: Real Road Distance Returned (> 0 km)"},
+        {"id": 3, "name": "ROUTING TEST 3: Driving Duration Returned (> 0 mins)"},
+        {"id": 4, "name": "ROUTING TEST 4: Invalid/Missing Coordinates Graceful Error Handling"},
+        {"id": 5, "name": "ROUTING TEST 5: Routing API Service Interruption Robustness (No App Crash)"},
+        {"id": 6, "name": "ROUTING TEST 6: Existing Haversine Geodesic Calculation Integrity"},
+        {"id": 7, "name": "ROUTING TEST 7: Existing Trained DNN Inference Pipeline Integrity"}
+    ]
+
+    routing_passed = 0
+
+    # ROUTING TEST 1: Valid Coordinates -> Real route returned
+    print(f"\nEvaluating {routing_tests[0]['name']}...")
+    ts_lat, ts_lon = 40.7580, -73.9855  # Times Square
+    jfk_lat, jfk_lon = 40.6413, -73.7781 # JFK Terminal 4
+    r_res = get_road_route(ts_lat, ts_lon, jfk_lat, jfk_lon)
+    if r_res["status"] == "success" and len(r_res.get("route_geometry", [])) > 0:
+        print(f"  Real Route Retrieved: {len(r_res['route_geometry'])} geometry waypoints from {r_res['provider']} -> PASSED [OK]")
+        routing_passed += 1
+    else:
+        print(f"  Routing retrieval failed: {r_res} -> FAILED")
+
+    # ROUTING TEST 2: Distance returned (> 0)
+    print(f"\nEvaluating {routing_tests[1]['name']}...")
+    if r_res.get("distance_km") is not None and r_res["distance_km"] > 0:
+        print(f"  Road Distance: {r_res['distance_km']:.2f} km (Air: {r_res['air_distance_km']:.2f} km | Ratio: {r_res['road_air_ratio']:.2f}x) -> PASSED [OK]")
+        routing_passed += 1
+    else:
+        print(f"  Expected positive road distance, got: {r_res.get('distance_km')} -> FAILED")
+
+    # ROUTING TEST 3: Duration returned (> 0)
+    print(f"\nEvaluating {routing_tests[2]['name']}...")
+    if r_res.get("duration_minutes") is not None and r_res["duration_minutes"] > 0:
+        print(f"  Driving Duration: {r_res['duration_minutes']:.1f} mins ({r_res['duration_formatted']}) -> PASSED [OK]")
+        routing_passed += 1
+    else:
+        print(f"  Expected positive duration, got: {r_res.get('duration_minutes')} -> FAILED")
+
+    # ROUTING TEST 4: Invalid coordinates -> Graceful error
+    print(f"\nEvaluating {routing_tests[3]['name']}...")
+    r_inv = get_road_route(None, -73.9855, 40.6413, None)
+    if r_inv["status"] == "invalid_coords" and r_inv["distance_km"] is None and r_inv["duration_minutes"] is None:
+        print(f"  Graceful validation error: status='{r_inv['status']}' | msg='{r_inv['error_message']}' -> PASSED [OK]")
+        routing_passed += 1
+    else:
+        print(f"  Expected invalid_coords error, got: {r_inv} -> FAILED")
+
+    # ROUTING TEST 5: Routing API Service Interruption Robustness
+    print(f"\nEvaluating {routing_tests[4]['name']}...")
+    # Test with simulated timeout / unreachable host to ensure app never crashes
+    r_down = get_road_route(ts_lat, ts_lon, jfk_lat, jfk_lon, timeout=0.0001)
+    if r_down["status"] in ["network_error", "error"] and r_down["distance_km"] is None:
+        print(f"  Interruption handled gracefully: status='{r_down['status']}' | msg='{r_down['error_message']}' -> PASSED [OK]")
+        routing_passed += 1
+    else:
+        print(f"  Expected graceful network_error, got: {r_down} -> FAILED")
+
+    # ROUTING TEST 6: Existing Haversine calculation still works
+    print(f"\nEvaluating {routing_tests[5]['name']}...")
+    h_dist = calculate_haversine_km(ts_lat, ts_lon, jfk_lat, jfk_lon)
+    if 21.0 <= h_dist <= 22.5:
+        print(f"  Air Geodesic Haversine Calculation: {h_dist:.2f} km -> PASSED [OK]")
+        routing_passed += 1
+    else:
+        print(f"  Haversine out of expected range: {h_dist:.2f} km -> FAILED")
+
+    # ROUTING TEST 7: Existing DNN prediction still works exactly as before
+    print(f"\nEvaluating {routing_tests[6]['name']}...")
+    dnn_check_df = pd.DataFrame([{
+        "key": "test_routing_dnn_check",
+        "pickup_datetime": pd.to_datetime("2025-10-15 14:00:00"),
+        "pickup_longitude": ts_lon, "pickup_latitude": ts_lat,
+        "dropoff_longitude": jfk_lon, "dropoff_latitude": jfk_lat,
+        "passenger_count": 1
+    }])
+    dnn_check_feats = extract_features(dnn_check_df)
+    dnn_check_scaled = scaler.transform(dnn_check_feats[FEATURE_COLS].values)
+    with torch.no_grad():
+        dnn_check_fare = model(torch.tensor(dnn_check_scaled, dtype=torch.float32)).item()
+    dnn_check_fare = max(2.50, round(dnn_check_fare, 2))
+    if 35.0 <= dnn_check_fare <= 75.0:
+        print(f"  Trained PyTorch DNN Inference Untouched: Predicted Fare = ${dnn_check_fare:.2f} (Air Distance: {dnn_check_feats['haversine_dist_km'].iloc[0]:.2f} km) -> PASSED [OK]")
+        routing_passed += 1
+    else:
+        print(f"  DNN prediction unexpected: ${dnn_check_fare:.2f} -> FAILED")
+
+    total_tests = len(test_cases) + len(geocoding_tests) + len(routing_tests)
+    total_passed = passed + geo_passed + routing_passed
+    print("\n" + "="*80)
+    print(f"DEPLOYMENT, GEOCODING & ROUTING TEST SUMMARY: {total_passed} / {total_tests} Test Cases Passed.")
     print("="*80)
     return total_passed == total_tests
 

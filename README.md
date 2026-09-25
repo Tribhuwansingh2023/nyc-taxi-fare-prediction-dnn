@@ -24,6 +24,7 @@ An end-to-end deep learning engineering pipeline designed to predict NYC Yellow 
   - [4. Recompile the Jupyter Notebook](#4-compile-the-end-to-end-notebook)
 - [Key Features & Feature Engineering (33 Features)](#-feature-engineering-pipeline-33-features)
 - [Address Geocoding Engine](#-address-geocoding-engine)
+- [Real Road Routing & Driving Telemetry](#-real-road-routing--driving-telemetry)
 - [Deep Neural Network Architecture](#-deep-neural-network-architecture)
 - [Experimental Benchmarks & Results](#-experimental-benchmarks--model-comparison)
 - [Visualizations Gallery](#-visualizations-gallery)
@@ -178,7 +179,7 @@ streamlit run app/app.py
 Open your browser at `http://localhost:8501`.
 
 ### 2. Run Automated Test Suite
-Execute the automated 10-scenario deployment and address geocoding verification suite to validate inference accuracy and address resolution against real-world test cases:
+Execute the automated 17-scenario deployment, address geocoding, and real road routing verification suite to validate inference accuracy, coordinate synchronization, and turn-by-turn routing telemetry against real-world test cases:
 ```bash
 python app/test_deployment.py
 ```
@@ -226,7 +227,32 @@ Evaluating TEST 6: Manual Coordinate Override Verification...
   Distance: 1.39 km | Fare: $9.42 -> PASSED [OK]
 
 ================================================================================
-DEPLOYMENT & GEOCODING TEST SUMMARY: 10 / 10 Test Cases Passed.
+RUNNING FEATURE #2: REAL ROAD ROUTE, DISTANCE & DRIVING TIME TESTS
+================================================================================
+
+Evaluating ROUTING TEST 1: Valid Pickup + Drop-off Coordinates (Real Route Returned)...
+  Real Route Retrieved: 907 geometry waypoints from OSRM (Open Source Routing Machine) -> PASSED [OK]
+
+Evaluating ROUTING TEST 2: Real Road Distance Returned (> 0 km)...
+  Road Distance: 27.90 km (Air: 21.77 km | Ratio: 1.28x) -> PASSED [OK]
+
+Evaluating ROUTING TEST 3: Driving Duration Returned (> 0 mins)...
+  Driving Duration: 29.9 mins (30 min) -> PASSED [OK]
+
+Evaluating ROUTING TEST 4: Invalid/Missing Coordinates Graceful Error Handling...
+  Graceful validation error: status='invalid_coords' | msg='❌ Pickup location coordinates are required and must be valid numeric values.' -> PASSED [OK]
+
+Evaluating ROUTING TEST 5: Routing API Service Interruption Robustness (No App Crash)...
+  Interruption handled gracefully: status='network_error' | msg='⚠️ Routing service timed out. Road route unavailable.' -> PASSED [OK]
+
+Evaluating ROUTING TEST 6: Existing Haversine Geodesic Calculation Integrity...
+  Air Geodesic Haversine Calculation: 21.77 km -> PASSED [OK]
+
+Evaluating ROUTING TEST 7: Existing Trained DNN Inference Pipeline Integrity...
+  Trained PyTorch DNN Inference Untouched: Predicted Fare = $57.07 (Air Distance: 21.77 km) -> PASSED [OK]
+
+================================================================================
+DEPLOYMENT, GEOCODING & ROUTING TEST SUMMARY: 17 / 17 Test Cases Passed.
 ================================================================================
 ```
 
@@ -304,6 +330,60 @@ The application supports multiple location input modalities with complete state 
 - **📍 Address Search Mode:** Search arbitrary NYC addresses with live geocoding.
 - **📌 Landmark Preset Mode:** Select from 10 verified NYC tourist and transit hubs (Times Square, JFK, LGA, Wall St, etc.).
 - **⚙️ Advanced Coordinates (Manual Fallback):** Direct latitude and longitude number steppers with a clear visual notice (`⚠️ Manual coordinates override the geocoded location`) when manual coordinates supersede geocoding.
+
+---
+
+## 🗺️ Real Road Routing & Driving Telemetry
+
+The application features a production-grade **Real-Time Road Routing & Driving Duration Engine** ([`src/routing.py`](file:///c:/Users/tribh/.gemini/antigravity-ide/scratch/nyc_taxi_fare_dnn_assignment/src/routing.py)) that computes actual turn-by-turn driving paths, true surface distances, and realistic ETAs via the OSRM (Open Source Routing Machine) REST API.
+
+### Academic Distinction: Air Distance vs. Real Road Distance
+
+| Metric | Computation Engine | Purpose in Application |
+| :--- | :--- | :--- |
+| **Air Distance (Geodesic)** | Spherical Haversine formula ($R = 6371.0088\text{ km}$) | **Trained DNN Feature Vector Input.** Evaluates pure geometric displacement. Preserved strictly to maintain 100% mathematical consistency with model training data. |
+| **Road Distance (Driving)** | OSRM Highway/Street Graph Dijkstra Path | **Trip Intelligence & Route Analytics.** Quantifies true surface kilometers navigated across Manhattan's grid, bridges, and expressways. |
+| **Road / Air Ratio** | $\text{Ratio} = \frac{\text{Road Distance}}{\text{Air Distance}}$ | **Informational Spatial Factor.** Typically $1.20\times$ to $1.35\times$ for NYC urban trips. (Displayed for passenger awareness, never used as an arbitrary fake multiplier). |
+
+### Routing Telemetry & Geometry Workflow
+
+1. **Coordinate Validation:** Validates that pickup and drop-off coordinates are finite numeric numbers within Earth bounds.
+2. **OSRM Route Engine:** Queries `http://router.project-osrm.org/route/v1/driving/{lon1},{lat1};{lon2},{lat2}` with full geometry.
+3. **Telemetry Extraction:**
+   - **Road Distance:** Extracted in meters, converted to kilometers (e.g. `27.90 km`).
+   - **Estimated Driving Time:** Extracted in seconds, formatted into clean human-readable text (e.g. `31 min`, `1 hr 12 min`).
+   - **Turn Coordinates:** Multi-point path array `[[lon, lat], ...]` representing genuine highway and street turns.
+4. **Interactive Map Visualization:**
+   - **3D Flight Deck (PyDeck):** Renders a dynamic cyan/blue `PathLayer` over actual NYC streets alongside elevation columns and flight arc.
+   - **2D Dynamic Grid (Plotly):** Renders a high-contrast `Scattermapbox` trajectory line following the road network.
+   - **Markers:** 🟢 Pickup marker and 🔴 Drop-off marker are always clearly identified.
+5. **DNN Feature Schema Preservation:** The trained PyTorch model continues to infer fares using its original validated 33-feature schema. An informational notice prevents model-feature mismatch:
+   > *"Current DNN was trained using the original feature schema. Road distance is currently used for routing and trip intelligence."*
+
+### Routing Configuration & Secrets
+
+| Parameter | Specification |
+| :--- | :--- |
+| **Provider** | OSRM (Open Source Routing Machine) Driving Engine |
+| **Optional API Key** | `ROUTING_API_KEY` (configured via Streamlit secrets or environment variables) |
+| **Caching Policy** | `@st.cache_data(ttl=1800)` with 5-decimal place coordinate normalization (~1.1 meter resolution) |
+| **Duration Formatting** | `< 60 min` $\rightarrow$ `X min`, `≥ 60 min` $\rightarrow$ `X hr Y min` |
+| **Failure Handling** | If routing fails or is unavailable, displays `⚠️ Real road route unavailable.` without fabricating fake routes or synthetic ETAs. |
+
+#### Configuring Secrets (Optional)
+If using a commercial routing provider (such as Mapbox, Google Routes, or LocationIQ):
+1. **Local Development:** Create or edit `.streamlit/secrets.toml`:
+   ```toml
+   ROUTING_API_KEY = "your-routing-key-here"
+   ```
+2. **Environment Variable:**
+   ```bash
+   export ROUTING_API_KEY="your-routing-key-here"
+   # On Windows PowerShell:
+   $env:ROUTING_API_KEY="your-routing-key-here"
+   ```
+> [!NOTE]
+> The default OSRM integration operates out of the box with zero external configuration required. Secrets are never exposed in UI, code, or repository commits.
 
 ---
 
