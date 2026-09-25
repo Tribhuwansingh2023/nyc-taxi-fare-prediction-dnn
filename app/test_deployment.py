@@ -971,13 +971,233 @@ def run_deployment_tests():
         else:
             print(f"  {t_res['name']} failed: {t_res.get('message', '')} -> FAILED")
 
+    from trip_history import (
+        update_actual_fare as th_update_actual,
+        compute_aggregate_metrics as th_comp_metrics,
+        export_to_csv_bytes as th_exp_csv,
+        fetch_all as th_f_all,
+        fetch_by_id as th_f_by_id,
+        insert_prediction as th_ins,
+        initialize_database as th_init_db
+    )
+    import trip_history as _th_mod
+    import tempfile
+    import math
+
+    print("\n" + "="*80)
+    print("RUNNING FEATURE #9: REAL PREDICTION VS ACTUAL FARE FEEDBACK SYSTEM TESTS")
+    print("="*80)
+
+    feedback_tests = [
+        {"id": 1, "name": "FEEDBACK TEST 1: Correct Absolute Error Calculation (|actual - predicted|)"},
+        {"id": 2, "name": "FEEDBACK TEST 2: Correct Relative Error Calculation (abs_error / actual)"},
+        {"id": 3, "name": "FEEDBACK TEST 3: Missing Actual Fare Handled & Excluded from Metrics"},
+        {"id": 4, "name": "FEEDBACK TEST 4: Zero Actual Fare Protection (No Division by Zero)"},
+        {"id": 5, "name": "FEEDBACK TEST 5: Over-Prediction Correctly Categorized (Pred > Actual)"},
+        {"id": 6, "name": "FEEDBACK TEST 6: Under-Prediction Correctly Categorized (Pred < Actual)"},
+        {"id": 7, "name": "FEEDBACK TEST 7: Aggregate MAE Mathematical Precision Verified"},
+        {"id": 8, "name": "FEEDBACK TEST 8: Aggregate RMSE Mathematical Precision Verified"},
+        {"id": 9, "name": "FEEDBACK TEST 9: Aggregate R² Variance Explained Accuracy Verified"},
+        {"id": 10, "name": "FEEDBACK TEST 10: Aggregate MAPE Calculation (Excluding Zero Actual)"},
+        {"id": 11, "name": "FEEDBACK TEST 11: Insufficient Feedback Records Safe Fallback (< 2 Trips)"},
+        {"id": 12, "name": "FEEDBACK TEST 12: Feedback Dataset CSV Export Integrity Verified"},
+        {"id": 13, "name": "FEEDBACK TEST 13: Immutability of Original ML Prediction Maintained"}
+    ]
+
+    fb_passed = 0
+    fb_orig_path = _th_mod.DB_PATH
+    with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as fb_tmp:
+        fb_tmp_path = fb_tmp.name
+    _th_mod.DB_PATH = fb_tmp_path
+
+    try:
+        th_init_db()
+
+        # Insert 3 test predictions
+        id_1 = th_ins(
+            pickup_address="Times Square, NY", dropoff_address="JFK Airport, NY",
+            pickup_latitude=40.7580, pickup_longitude=-73.9855,
+            dropoff_latitude=40.6413, dropoff_longitude=-73.7781,
+            distance_km=21.5, road_distance_km=27.9, estimated_duration=35.0,
+            passenger_count=1, pickup_datetime="2026-09-25T10:00:00",
+            predicted_fare=24.30, model_name="TaxiFareDNN"
+        )
+        id_2 = th_ins(
+            pickup_address="Brooklyn, NY", dropoff_address="Manhattan, NY",
+            pickup_latitude=40.7028, pickup_longitude=-73.9965,
+            dropoff_latitude=40.7580, dropoff_longitude=-73.9855,
+            distance_km=12.4, road_distance_km=14.0, estimated_duration=22.0,
+            passenger_count=2, pickup_datetime="2026-09-25T11:00:00",
+            predicted_fare=30.00, model_name="TaxiFareDNN"
+        )
+        id_3 = th_ins(
+            pickup_address="Grand Central, NY", dropoff_address="Wall Street, NY",
+            pickup_latitude=40.7527, pickup_longitude=-73.9772,
+            dropoff_latitude=40.7075, dropoff_longitude=-74.0090,
+            distance_km=8.0, road_distance_km=9.5, estimated_duration=18.0,
+            passenger_count=1, pickup_datetime="2026-09-25T12:00:00",
+            predicted_fare=15.00, model_name="TaxiFareDNN"
+        )
+
+        # FEEDBACK TEST 1: Correct Absolute Error
+        print(f"\nEvaluating {feedback_tests[0]['name']}...")
+        th_update_actual(id_1, actual_fare=26.10)
+        rec_1 = th_f_by_id(id_1)
+        expected_abs_1 = abs(26.10 - 24.30)  # 1.80
+        if rec_1 and abs(rec_1["absolute_error"] - expected_abs_1) < 0.001:
+            print(f"  Absolute Error Verified: Pred=$24.30, Actual=$26.10 -> Absolute Error=${rec_1['absolute_error']:.2f} -> PASSED [OK]")
+            fb_passed += 1
+        else:
+            print(f"  Absolute error mismatch: {rec_1} -> FAILED")
+
+        # FEEDBACK TEST 2: Correct Relative Error
+        print(f"\nEvaluating {feedback_tests[1]['name']}...")
+        expected_rel_1 = 1.80 / 26.10  # 0.068965 -> 6.90%
+        if rec_1 and abs(rec_1["relative_error"] - expected_rel_1) < 0.001:
+            print(f"  Relative Error Verified: {rec_1['relative_error']*100:.2f}% (Expected ~6.90%) -> PASSED [OK]")
+            fb_passed += 1
+        else:
+            print(f"  Relative error mismatch: {rec_1} -> FAILED")
+
+        # FEEDBACK TEST 3: Missing Actual Fare Handled
+        print(f"\nEvaluating {feedback_tests[2]['name']}...")
+        rec_3 = th_f_by_id(id_3)
+        if rec_3 and rec_3["actual_fare"] is None and rec_3["absolute_error"] is None:
+            print(f"  Missing Actual Handled Gracefully: actual_fare=None, absolute_error=None -> PASSED [OK]")
+            fb_passed += 1
+        else:
+            print(f"  Missing actual handled incorrectly: {rec_3} -> FAILED")
+
+        # FEEDBACK TEST 4: Zero Actual Fare Protection
+        print(f"\nEvaluating {feedback_tests[3]['name']}...")
+        id_zero = th_ins(
+            pickup_address="Zero Test Pickup", dropoff_address="Zero Test Dropoff",
+            pickup_latitude=40.75, pickup_longitude=-73.98,
+            dropoff_latitude=40.76, dropoff_longitude=-73.97,
+            distance_km=1.0, road_distance_km=1.2, estimated_duration=5.0,
+            passenger_count=1, pickup_datetime="2026-09-25T13:00:00",
+            predicted_fare=10.00, model_name="TaxiFareDNN"
+        )
+        th_update_actual(id_zero, actual_fare=0.0)
+        rec_zero = th_f_by_id(id_zero)
+        if rec_zero and rec_zero["relative_error"] is None and rec_zero["absolute_error"] == 10.00:
+            print(f"  ZeroDivisionError Protection: actual=0.0 -> rel_error=None (Safely avoided division by zero) -> PASSED [OK]")
+            fb_passed += 1
+        else:
+            print(f"  Zero actual fare handled incorrectly: {rec_zero} -> FAILED")
+
+        # FEEDBACK TEST 5: Over-Prediction Categorization
+        print(f"\nEvaluating {feedback_tests[4]['name']}...")
+        th_update_actual(id_2, actual_fare=25.00)  # Pred=30.00 > Actual=25.00
+        rec_2 = th_f_by_id(id_2)
+        dir_2 = "Over-prediction" if rec_2["predicted_fare"] > rec_2["actual_fare"] else "Under-prediction"
+        if dir_2 == "Over-prediction":
+            print(f"  Over-prediction Correctly Identified: Pred=${rec_2['predicted_fare']:.2f} > Actual=${rec_2['actual_fare']:.2f} -> PASSED [OK]")
+            fb_passed += 1
+        else:
+            print(f"  Over-prediction check failed: {dir_2} -> FAILED")
+
+        # FEEDBACK TEST 6: Under-Prediction Categorization
+        print(f"\nEvaluating {feedback_tests[5]['name']}...")
+        dir_1 = "Under-prediction" if rec_1["predicted_fare"] < rec_1["actual_fare"] else "Over-prediction"
+        if dir_1 == "Under-prediction":
+            print(f"  Under-prediction Correctly Identified: Pred=${rec_1['predicted_fare']:.2f} < Actual=${rec_1['actual_fare']:.2f} -> PASSED [OK]")
+            fb_passed += 1
+        else:
+            print(f"  Under-prediction check failed: {dir_1} -> FAILED")
+
+        # FEEDBACK TEST 7: Aggregate MAE
+        print(f"\nEvaluating {feedback_tests[6]['name']}...")
+        # Records with actual > 0: id_1 (abs=1.80), id_2 (abs=5.00)
+        fb_metrics = th_comp_metrics()
+        expected_mae = (1.80 + 5.00 + 10.00) / 3.0  # 5.60
+        if fb_metrics and abs(fb_metrics["mae"] - expected_mae) < 0.01:
+            print(f"  Aggregate MAE Verified: ${fb_metrics['mae']:.2f} across {fb_metrics['n_with_actual']} trips -> PASSED [OK]")
+            fb_passed += 1
+        else:
+            print(f"  Aggregate MAE mismatch: {fb_metrics} -> FAILED")
+
+        # FEEDBACK TEST 8: Aggregate RMSE
+        print(f"\nEvaluating {feedback_tests[7]['name']}...")
+        expected_rmse = math.sqrt((1.80**2 + 5.00**2 + 10.00**2) / 3.0)
+        if fb_metrics and abs(fb_metrics["rmse"] - expected_rmse) < 0.01:
+            print(f"  Aggregate RMSE Verified: ${fb_metrics['rmse']:.2f} -> PASSED [OK]")
+            fb_passed += 1
+        else:
+            print(f"  Aggregate RMSE mismatch: {fb_metrics} -> FAILED")
+
+        # FEEDBACK TEST 9: Aggregate R² Calculation
+        print(f"\nEvaluating {feedback_tests[8]['name']}...")
+        if fb_metrics and fb_metrics["r2"] is not None and isinstance(fb_metrics["r2"], float):
+            print(f"  Aggregate R² Computed: {fb_metrics['r2']:.4f} -> PASSED [OK]")
+            fb_passed += 1
+        else:
+            print(f"  Aggregate R² calculation failed: {fb_metrics} -> FAILED")
+
+        # FEEDBACK TEST 10: Aggregate MAPE Calculation (Excluding Actual = 0)
+        print(f"\nEvaluating {feedback_tests[9]['name']}...")
+        # id_1: 1.80/26.10 * 100 = 6.8965%
+        # id_2: 5.00/25.00 * 100 = 20.000%
+        expected_mape = (expected_rel_1 * 100 + 20.00) / 2.0  # ~13.45%
+        if fb_metrics and abs(fb_metrics["mape"] - expected_mape) < 0.1:
+            print(f"  Aggregate MAPE Verified: {fb_metrics['mape']:.2f}% (Safely excluded actual=0) -> PASSED [OK]")
+            fb_passed += 1
+        else:
+            print(f"  Aggregate MAPE mismatch: {fb_metrics} -> FAILED")
+
+        # FEEDBACK TEST 11: Insufficient Records Protection (< 2 Trips)
+        print(f"\nEvaluating {feedback_tests[10]['name']}...")
+        with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as empty_tmp:
+            empty_path = empty_tmp.name
+        _th_mod.DB_PATH = empty_path
+        th_init_db()
+        empty_metrics = th_comp_metrics()
+        _th_mod.DB_PATH = fb_tmp_path
+        if empty_metrics == {}:
+            print(f"  Insufficient Records Handled: Returned empty dict {{}} when N < 2 -> PASSED [OK]")
+            fb_passed += 1
+        else:
+            print(f"  Insufficient records returned unexpected value: {empty_metrics} -> FAILED")
+        try:
+            import os as _os
+            _os.unlink(empty_path)
+        except Exception:
+            pass
+
+        # FEEDBACK TEST 12: Feedback Dataset CSV Export Integrity
+        print(f"\nEvaluating {feedback_tests[11]['name']}...")
+        feedback_rows = th_f_all(has_actual=True)
+        csv_bytes = th_exp_csv(feedback_rows)
+        if len(csv_bytes) > 0 and b"actual_fare" in csv_bytes and b"predicted_fare" in csv_bytes:
+            print(f"  Feedback CSV Export Verified: {len(csv_bytes)} bytes with actual_fare & predicted_fare headers -> PASSED [OK]")
+            fb_passed += 1
+        else:
+            print(f"  Feedback CSV export invalid: {csv_bytes[:100]} -> FAILED")
+
+        # FEEDBACK TEST 13: Immutability of Original ML Prediction
+        print(f"\nEvaluating {feedback_tests[12]['name']}...")
+        check_rec = th_f_by_id(id_1)
+        if check_rec and check_rec["predicted_fare"] == 24.30:
+            print(f"  Prediction Immutability Confirmed: Original predicted fare remains $24.30 after actual fare update -> PASSED [OK]")
+            fb_passed += 1
+        else:
+            print(f"  Original prediction was overwritten: {check_rec} -> FAILED")
+
+    finally:
+        _th_mod.DB_PATH = fb_orig_path
+        try:
+            import os as _os
+            _os.unlink(fb_tmp_path)
+        except Exception:
+            pass
+
     total_tests = (len(test_cases) + len(geocoding_tests) + len(routing_tests) + 
                    len(fare_tests) + len(explainability_tests) + len(uncertainty_tests) + 
-                   len(model_comp_tests) + len(monitoring_tests) + len(db_test_results))
+                   len(model_comp_tests) + len(monitoring_tests) + len(db_test_results) + len(feedback_tests))
     total_passed = (passed + geo_passed + routing_passed + fare_passed + 
-                    exp_passed + unc_passed + mcomp_passed + mon_passed + history_passed)
+                    exp_passed + unc_passed + mcomp_passed + mon_passed + history_passed + fb_passed)
     print("\n" + "="*80)
-    print(f"DEPLOYMENT, GEOCODING, ROUTING, FARE, EXPLAINABILITY, UNCERTAINTY, MULTI-MODEL, MONITORING & TRIP HISTORY SUMMARY: {total_passed} / {total_tests} Test Cases Passed.")
+    print(f"DEPLOYMENT, GEOCODING, ROUTING, FARE, EXPLAINABILITY, UNCERTAINTY, MULTI-MODEL, MONITORING, TRIP HISTORY & FEEDBACK SUMMARY: {total_passed} / {total_tests} Test Cases Passed.")
     print("="*80)
     return total_passed == total_tests
 

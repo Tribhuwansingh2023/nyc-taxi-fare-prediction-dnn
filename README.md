@@ -28,6 +28,8 @@ An end-to-end deep learning engineering pipeline designed to predict NYC Yellow 
 - [Fare Estimation Engine](#-fare-estimation-engine)
 - [Model Explainability](#-model-explainability)
 - [Prediction Uncertainty](#-prediction-uncertainty)
+- [Trip History & Persistence ("My Predictions")](#-trip-history--persistence-my-predictions)
+- [Prediction vs Actual Fare Feedback System](#-prediction-vs-actual-fare-feedback-system)
 - [Deep Neural Network Architecture](#-deep-neural-network-architecture)
 - [Experimental Benchmarks & Results](#-experimental-benchmarks--model-comparison)
 - [Visualizations Gallery](#-visualizations-gallery)
@@ -913,6 +915,66 @@ CREATE TABLE IF NOT EXISTS trip_predictions (
 6. **Data Privacy & Security:**
    - Stores strictly local technical trip features and fares.
    - **No API keys, secret credentials, user passwords, or tracking tokens are ever saved.**
+
+---
+
+## 🎯 Prediction vs Actual Fare Feedback System
+
+Feature #9 integrates a real-world, empirical feedback mechanism that pairs historical inference records with post-ride cleared fares reported by users. It provides transparent error auditing, mathematical performance tracking, and actionable evaluation visualizations while strictly safeguarding the integrity of production models and empirical test sets.
+
+```mermaid
+flowchart LR
+    A["Trip Predicted<br/>(ŷ = $24.30)"] --> B["Ride Completed<br/>(Passenger in NYC)"]
+    B --> C["User Submits Actual Fare<br/>(y = $26.10)"]
+    C --> D["Exact Error Computation<br/>(|26.10 - 24.30| = $1.80)"]
+    D --> E["Database Record Updated<br/>(trip_history.db)"]
+    E --> F["Live Feedback Dashboard<br/>(Scatter, Residuals, Time Series)"]
+    F -.->|"Manual Export Only"| G["Export Feedback Dataset<br/>(No Automatic Retraining)"]
+```
+
+### Mathematical Formulation & Error Metrics
+
+All performance calculations are derived strictly from genuine saved trip records containing valid actual fares:
+
+1. **Difference (Residual):**
+   $$\text{Difference} = y_i - \hat{y}_i$$
+   - **Over-prediction:** If $\hat{y}_i > y_i$ (model estimated higher than true fare).
+   - **Under-prediction:** If $\hat{y}_i < y_i$ (model estimated lower than true fare).
+   - **Exact match:** If $\hat{y}_i = y_i$.
+
+2. **Absolute Error:**
+   $$\text{Absolute Error} = |y_i - \hat{y}_i|$$
+
+3. **Relative Error (%):**
+   $$\text{Relative Error} = \frac{|y_i - \hat{y}_i|}{|y_i|} \times 100\%$$
+   - *Zero-Division Protection:* When $y_i = 0$, relative error is safely mapped to `None` / `N/A` rather than raising a runtime exception.
+
+4. **Aggregate Real-World Performance Metrics ($N \ge 2$):**
+   - **Mean Absolute Error (MAE):** $\text{MAE} = \frac{1}{N} \sum_{i=1}^N |y_i - \hat{y}_i|$
+   - **Median Absolute Error (Median AE):** $\text{Median AE} = \text{median}(|y_1 - \hat{y}_1|, \dots, |y_N - \hat{y}_N|)$
+   - **Root Mean Squared Error (RMSE):** $\text{RMSE} = \sqrt{\frac{1}{N} \sum_{i=1}^N (y_i - \hat{y}_i)^2}$
+   - **Coefficient of Determination ($R^2$):** $R^2 = 1 - \frac{\sum_{i=1}^N (y_i - \hat{y}_i)^2}{\sum_{i=1}^N (y_i - \bar{y})^2}$
+   - **Mean Absolute Percentage Error (MAPE):**
+     $$\text{MAPE} = \frac{100\%}{M} \sum_{i=1, y_i \ne 0}^M \frac{|y_i - \hat{y}_i|}{|y_i|}$$
+     *(Note: Records with $y_i = 0$ are mathematically excluded from MAPE. As standard in statistical literature, MAPE is reported as an error rate and is never misleadingly designated as "accuracy".)*
+
+### Interactive Visualizations
+
+The feedback dashboard ([`app/app.py`](file:///c:/Users/tribh/.gemini/antigravity-ide/scratch/nyc_taxi_fare_dnn_assignment/app/app.py) Tab 10) dynamically updates with three real-data Plotly figures:
+1. **Actual vs Predicted Scatter Plot:** Features a dashed $y = x$ reference line to instantly highlight systemic bias across fare scales.
+2. **Error Distribution Histogram:** Displays residual distribution ($y - \hat{y}$) centered around zero, illuminating skewness and tail outliers.
+3. **Prediction Error Over Time:** Tracks absolute error $|\text{actual} - \text{predicted}|$ chronologically across ride dates to spot temporal performance shifts.
+
+### Academic Distinction: Test Set vs Real-World Feedback
+
+The system strictly differentiates between:
+- **A. Official / Holdout Test Set Evaluation:** Calibrated on $N = 144,021$ audited historical NYC taxi rides ($\text{MAE} = \$1.57$, $R^2 = 0.8734$). Represents the scientific benchmark under controlled conditions.
+- **B. User's Real-World Trip Feedback:** Dynamic, crowdsourced sample of user-entered observations subject to real-world routing deviations, traffic incidents, driver surcharges, and self-selection bias.
+
+### Model Immutability & Future Retraining Guardrails
+
+- **Zero Silent Retraining:** Production neural network weights, layers, scalers, and checkpoints are **never** modified or retrained automatically upon receiving user feedback.
+- **Controlled Dataset Export:** Provides an **"Export Feedback Dataset (CSV)"** utility allowing data scientists to inspect, clean, and validate empirical feedback offline before conducting any planned model updates.
 
 ---
 
