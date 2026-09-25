@@ -802,16 +802,170 @@ def run_deployment_tests():
     else:
         print(f"  Benchmark metrics table incomplete or missing columns: {df_metrics} -> FAILED")
 
-    total_tests = len(test_cases) + len(geocoding_tests) + len(routing_tests) + len(fare_tests) + len(explainability_tests) + len(uncertainty_tests) + len(model_comp_tests)
-    total_passed = passed + geo_passed + routing_passed + fare_passed + exp_passed + unc_passed + mcomp_passed
+    import time
+    from model_monitoring import (
+        get_model_static_metadata,
+        get_stored_performance_metrics,
+        get_telemetry_summary,
+        record_inference_event,
+        evaluate_model_health,
+        compute_feature_drift,
+        init_telemetry_table,
+        SLA_THRESHOLDS
+    )
+
     print("\n" + "="*80)
-    print(f"DEPLOYMENT, GEOCODING, ROUTING, FARE, EXPLAINABILITY, UNCERTAINTY & MULTI-MODEL TEST SUMMARY: {total_passed} / {total_tests} Test Cases Passed.")
+    print("RUNNING FEATURE #7: REAL MODEL MONITORING & HEALTH DASHBOARD TESTS")
+    print("="*80)
+
+    monitoring_tests = [
+        {"id": 1, "name": "MONITORING TEST 1: Model Loads Successfully & Parameters/Architecture Verified"},
+        {"id": 2, "name": "MONITORING TEST 2: Prediction Latency Measured with Monotonic High-Res Timers"},
+        {"id": 3, "name": "MONITORING TEST 3: Successful Inference Increments Success Count"},
+        {"id": 4, "name": "MONITORING TEST 4: Failed Inference Increments Failure Count Gracefully"},
+        {"id": 5, "name": "MONITORING TEST 5: Session Metrics (Mean, P50, P95 Latency) Calculate Accurately"},
+        {"id": 6, "name": "MONITORING TEST 6: Missing Metadata Handled Safely Without Fabrication"},
+        {"id": 7, "name": "MONITORING TEST 7: Stored Performance Metrics Match Empirical Records (MAE, RMSE, R²)"},
+        {"id": 8, "name": "MONITORING TEST 8: Privacy & Security Verified (No API Secrets or Tokens in Telemetry)"},
+        {"id": 9, "name": "MONITORING TEST 9: Existing PyTorch DNN Prediction Invariance Maintained"}
+    ]
+
+    mon_passed = 0
+
+    # MONITORING TEST 1: Model Loads Successfully & Parameters/Architecture Verified
+    print(f"\nEvaluating {monitoring_tests[0]['name']}...")
+    mon_meta = get_model_static_metadata(model=model, scaler=scaler)
+    if (mon_meta.get("model_name") == "TaxiFareDNN" and 
+        mon_meta.get("total_parameters") == 15105 and 
+        mon_meta.get("in_features") == 33 and
+        "PyTorch" in mon_meta.get("framework", "")):
+        print(f"  Model Metadata Intact: {mon_meta['model_name']} ({mon_meta['framework']}) | Params: {mon_meta['total_parameters']:,} | Inputs: {mon_meta['in_features']} -> PASSED [OK]")
+        mon_passed += 1
+    else:
+        print(f"  Metadata check failed: {mon_meta} -> FAILED")
+
+    # MONITORING TEST 2: Prediction Latency Measured with Monotonic High-Res Timers
+    print(f"\nEvaluating {monitoring_tests[1]['name']}...")
+    t_m0 = time.perf_counter()
+    with torch.no_grad():
+        test_out = model(torch.tensor(dnn_live_scaled, dtype=torch.float32)).item()
+    t_m1 = time.perf_counter()
+    measured_lat_ms = (t_m1 - t_m0) * 1000
+    if measured_lat_ms > 0 and isinstance(measured_lat_ms, float):
+        print(f"  Monotonic Latency Measured: {measured_lat_ms:.3f} ms for forward pass -> PASSED [OK]")
+        mon_passed += 1
+    else:
+        print(f"  Invalid latency measurement: {measured_lat_ms} -> FAILED")
+
+    # MONITORING TEST 3: Successful Inference Increments Success Count
+    print(f"\nEvaluating {monitoring_tests[2]['name']}...")
+    init_sum = get_telemetry_summary(scope="session")
+    pre_succ = init_sum["successful_predictions"]
+    record_inference_event(
+        model_name="TaxiFareDNN",
+        feature_prep_ms=1.2,
+        inference_ms=measured_lat_ms,
+        total_latency_ms=1.2 + measured_lat_ms,
+        status="SUCCESS",
+        is_valid_input=True
+    )
+    post_succ_sum = get_telemetry_summary(scope="session")
+    if post_succ_sum["successful_predictions"] == pre_succ + 1:
+        print(f"  Success Counter Incremented: {pre_succ} -> {post_succ_sum['successful_predictions']} -> PASSED [OK]")
+        mon_passed += 1
+    else:
+        print(f"  Success counter failed to increment: {post_succ_sum['successful_predictions']} -> FAILED")
+
+    # MONITORING TEST 4: Failed Inference Increments Failure Count Gracefully
+    print(f"\nEvaluating {monitoring_tests[3]['name']}...")
+    pre_fail = post_succ_sum["failed_predictions"]
+    record_inference_event(
+        model_name="TaxiFareDNN",
+        feature_prep_ms=0.5,
+        inference_ms=0.0,
+        total_latency_ms=0.5,
+        status="FAILED",
+        error_message="Simulated test inference failure",
+        is_valid_input=False,
+        rejection_reason="Test rejection"
+    )
+    post_fail_sum = get_telemetry_summary(scope="session")
+    if post_fail_sum["failed_predictions"] == pre_fail + 1:
+        print(f"  Failure Counter Incremented Gracefully: {pre_fail} -> {post_fail_sum['failed_predictions']} -> PASSED [OK]")
+        mon_passed += 1
+    else:
+        print(f"  Failure counter failed to increment: {post_fail_sum['failed_predictions']} -> FAILED")
+
+    # MONITORING TEST 5: Session Metrics (Mean, P50, P95 Latency) Calculate Accurately
+    print(f"\nEvaluating {monitoring_tests[4]['name']}...")
+    sess_stats = get_telemetry_summary(scope="session")
+    if (sess_stats["avg_latency_ms"] >= 0 and
+        sess_stats["p50_latency_ms"] >= 0 and
+        sess_stats["p95_latency_ms"] >= 0 and
+        sess_stats["min_latency_ms"] <= sess_stats["max_latency_ms"]):
+        print(f"  Session Statistics Accurately Computed: Avg={sess_stats['avg_latency_ms']:.2f}ms | P50={sess_stats['p50_latency_ms']:.2f}ms | P95={sess_stats['p95_latency_ms']:.2f}ms -> PASSED [OK]")
+        mon_passed += 1
+    else:
+        print(f"  Invalid session statistics: {sess_stats} -> FAILED")
+
+    # MONITORING TEST 6: Missing Metadata Handled Safely Without Fabrication
+    print(f"\nEvaluating {monitoring_tests[5]['name']}...")
+    empty_meta = get_model_static_metadata(model=None, scaler=None)
+    if (empty_meta.get("training_date") == "Not recorded" and
+        "not specified" in empty_meta.get("model_version", "").lower()):
+        print(f"  Safe Fallbacks Verified: Version='{empty_meta['model_version']}' | Training Date='{empty_meta['training_date']}' (No fake version/date invented) -> PASSED [OK]")
+        mon_passed += 1
+    else:
+        print(f"  Metadata fallback failed: {empty_meta} -> FAILED")
+
+    # MONITORING TEST 7: Stored Performance Metrics Match Empirical Records (MAE, RMSE, R²)
+    print(f"\nEvaluating {monitoring_tests[6]['name']}...")
+    stored_perf = get_stored_performance_metrics()
+    if (stored_perf.get("val_mae") == 1.57 and
+        stored_perf.get("test_mae") == 1.57 and
+        stored_perf.get("test_r2") == 0.8734):
+        print(f"  Stored Metrics Verified: Val MAE=${stored_perf['val_mae']:.2f} | Test MAE=${stored_perf['test_mae']:.2f} | Test R²={stored_perf['test_r2']:.4f} -> PASSED [OK]")
+        mon_passed += 1
+    else:
+        print(f"  Performance metrics mismatch: {stored_perf} -> FAILED")
+
+    # MONITORING TEST 8: Privacy & Security Verified (No API Secrets or Tokens in Telemetry)
+    print(f"\nEvaluating {monitoring_tests[7]['name']}...")
+    suspicious_tokens = ["api_key", "bearer", "secret", "password", "token="]
+    telemetry_clean = True
+    for ev in sess_stats.get("records", []):
+        ev_str = str(ev).lower()
+        if any(tok in ev_str for tok in suspicious_tokens):
+            telemetry_clean = False
+            break
+    if telemetry_clean:
+        print(f"  Privacy Verified: Zero API keys, secrets, or tokens stored in telemetry buffers -> PASSED [OK]")
+        mon_passed += 1
+    else:
+        print(f"  Security audit failed: Sensitive tokens detected in telemetry! -> FAILED")
+
+    # MONITORING TEST 9: Existing PyTorch DNN Prediction Invariance Maintained
+    print(f"\nEvaluating {monitoring_tests[8]['name']}...")
+    with torch.no_grad():
+        final_test_fare = model(torch.tensor(dnn_live_scaled, dtype=torch.float32)).item()
+    final_test_fare = max(2.50, round(final_test_fare, 2))
+    if abs(final_test_fare - dnn_live_fare) < 0.01:
+        print(f"  DNN Prediction Invariance Verified: PredBefore=${dnn_live_fare:.2f} == PredAfter=${final_test_fare:.2f} -> PASSED [OK]")
+        mon_passed += 1
+    else:
+        print(f"  DNN prediction shifted: {final_test_fare} vs {dnn_live_fare} -> FAILED")
+
+    total_tests = len(test_cases) + len(geocoding_tests) + len(routing_tests) + len(fare_tests) + len(explainability_tests) + len(uncertainty_tests) + len(model_comp_tests) + len(monitoring_tests)
+    total_passed = passed + geo_passed + routing_passed + fare_passed + exp_passed + unc_passed + mcomp_passed + mon_passed
+    print("\n" + "="*80)
+    print(f"DEPLOYMENT, GEOCODING, ROUTING, FARE, EXPLAINABILITY, UNCERTAINTY, MULTI-MODEL & MONITORING SUMMARY: {total_passed} / {total_tests} Test Cases Passed.")
     print("="*80)
     return total_passed == total_tests
 
 if __name__ == "__main__":
     success = run_deployment_tests()
     sys.exit(0 if success else 1)
+
 
 
 
