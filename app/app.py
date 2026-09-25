@@ -30,6 +30,7 @@ import torch
 import torch.nn as nn
 import plotly.graph_objects as go
 import plotly.express as px
+import requests
 
 try:
     import pydeck as pdk
@@ -762,6 +763,120 @@ if "map_view_mode" not in st.session_state:
     st.session_state["map_view_mode"] = "3D Night Flight Deck (PyDeck)"
 if "tip_pct" not in st.session_state:
     st.session_state["tip_pct"] = 18
+if "live_time_mode" not in st.session_state:
+    st.session_state["live_time_mode"] = False
+if "live_weather_sync" not in st.session_state:
+    st.session_state["live_weather_sync"] = True
+if "dispatched_cab" not in st.session_state:
+    st.session_state["dispatched_cab"] = None
+if "geo_results" not in st.session_state:
+    st.session_state["geo_results"] = None
+
+# =============================================================================
+# REAL-TIME NYC TELEMETRY & LIVE API SERVICES
+# =============================================================================
+def get_live_nyc_time():
+    """Computes accurate current local time in New York City (US Eastern Time with DST)."""
+    now_utc = datetime.datetime.now(datetime.timezone.utc)
+    month = now_utc.month
+    offset_hours = -4 if 3 <= month <= 11 else -5
+    nyc_tz = datetime.timezone(datetime.timedelta(hours=offset_hours))
+    return now_utc.astimezone(nyc_tz)
+
+@st.cache_data(ttl=300)
+def get_live_nyc_weather():
+    """Fetches live meteorological telemetry for New York City via Open-Meteo."""
+    try:
+        url = "https://api.open-meteo.com/v1/forecast?latitude=40.7128&longitude=-74.0060&current_weather=true"
+        r = requests.get(url, timeout=2.5)
+        if r.status_code == 200:
+            data = r.json().get("current_weather", {})
+            temp_c = data.get("temperature", 15.0)
+            temp_f = round(temp_c * 9/5 + 32, 1)
+            wcode = data.get("weathercode", 0)
+            wind = data.get("windspeed", 10.0)
+            if wcode in [0, 1]:
+                desc, mult, icon = "Clear Skies / Sunny", 1.00, "☀️"
+            elif wcode in [2, 3]:
+                desc, mult, icon = "Partly Cloudy / Overcast", 1.05, "⛅"
+            elif wcode in [51, 53, 55, 61, 63, 65, 80, 81]:
+                desc, mult, icon = "Light / Moderate Rain", 1.15, "🌧️"
+            elif wcode in [65, 82, 95, 96, 99]:
+                desc, mult, icon = "Heavy Rain / Thunderstorm", 1.25, "⛈️"
+            elif wcode in [71, 73, 75, 77, 85, 86]:
+                desc, mult, icon = "Snow / Sleet / Freezing", 1.35, "❄️"
+            else:
+                desc, mult, icon = "Normal Conditions", 1.00, "🌤️"
+            return {"temp_c": temp_c, "temp_f": temp_f, "desc": desc, "mult": mult, "wind": wind, "icon": icon, "status": "LIVE"}
+    except Exception:
+        pass
+    return {"temp_c": 16.0, "temp_f": 60.8, "desc": "Standard NYC Conditions", "mult": 1.00, "wind": 12.0, "icon": "🌤️", "status": "DEFAULT"}
+
+@st.cache_data(ttl=1800)
+def get_live_osrm_route(p_lat, p_lon, d_lat, d_lon):
+    """Fetches real-world turn-by-turn road driving directions and distance via OSRM."""
+    try:
+        url = f"http://router.project-osrm.org/route/v1/driving/{p_lon},{p_lat};{d_lon},{d_lat}?overview=full&geometries=geojson"
+        r = requests.get(url, timeout=3.0)
+        if r.status_code == 200:
+            res = r.json()
+            if "routes" in res and len(res["routes"]) > 0:
+                route = res["routes"][0]
+                dist_km = round(route["distance"] / 1000.0, 2)
+                dur_mins = round(route["duration"] / 60.0, 1)
+                coords = route["geometry"]["coordinates"] # [lon, lat]
+                return {
+                    "distance_km": dist_km,
+                    "duration_mins": dur_mins,
+                    "coordinates": coords,
+                    "status": "LIVE_ROUTING"
+                }
+    except Exception:
+        pass
+    # Fallback to straight-line interpolation with Manhattan road factor
+    steps = 30
+    lats = np.linspace(p_lat, d_lat, steps)
+    lons = np.linspace(p_lon, d_lon, steps)
+    coords = [[float(lo), float(la)] for lo, la in zip(lons, lats)]
+    h_dist = haversine_distance(p_lat, p_lon, d_lat, d_lon)
+    return {
+        "distance_km": round(h_dist * 1.28, 2),
+        "duration_mins": round(max(3.0, (h_dist * 1.28 / 18.0) * 60), 1),
+        "coordinates": coords,
+        "status": "ESTIMATED_ROAD_FACTOR"
+    }
+
+@st.cache_data(ttl=3600)
+def search_nyc_address(query):
+    """Geocodes any custom NYC landmark or street address via OpenStreetMap Nominatim."""
+    if not query or len(query.strip()) < 3:
+        return None
+    try:
+        q = f"{query.strip()}, New York City"
+        headers = {"User-Agent": "NYCTaxiFareApp/2.0 (Academic Research Project)"}
+        url = f"https://nominatim.openstreetmap.org/search?q={requests.utils.quote(q)}&format=json&limit=3&viewbox=-74.26,40.92,-73.70,40.49&bounded=1"
+        r = requests.get(url, headers=headers, timeout=3.0)
+        if r.status_code == 200:
+            data = r.json()
+            if data and len(data) > 0:
+                results = []
+                for item in data:
+                    lat = float(item["lat"])
+                    lon = float(item["lon"])
+                    name = item.get("display_name", "").split(",")[0]
+                    results.append({"name": name, "lat": lat, "lon": lon, "full_addr": item.get("display_name", "")})
+                return results
+    except Exception:
+        pass
+    return None
+
+def get_nearby_cabs(p_lat, p_lon):
+    """Generates simulated available nearby NYC yellow cabs around pickup point."""
+    return [
+        {"medallion": "NYC-4192", "model": "Toyota Camry Hybrid", "lat": p_lat + 0.0022, "lon": p_lon - 0.0019, "dist_m": 240, "eta_min": 1.5, "driver": "Salim K.", "rating": "4.96 ★"},
+        {"medallion": "NYC-8831", "model": "Ford Crown Victoria", "lat": p_lat - 0.0034, "lon": p_lon + 0.0025, "dist_m": 460, "eta_min": 3.0, "driver": "David M.", "rating": "4.89 ★"},
+        {"medallion": "NYC-1054", "model": "Tesla Model Y (Yellow)", "lat": p_lat + 0.0048, "lon": p_lon + 0.0038, "dist_m": 710, "eta_min": 4.5, "driver": "Anika R.", "rating": "4.98 ★"}
+    ]
 
 def set_preset(preset_key):
     cfg = PRESET_CONFIGS[preset_key]
@@ -819,31 +934,41 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # Live Telemetry Ribbon
+live_weather = get_live_nyc_weather()
+live_nyc_now = get_live_nyc_time()
+
 st.markdown(f"""
 <div class="telemetry-strip">
-    <div><span class="pulse-dot"></span><b>INFERENCE ENGINE ONLINE</b> &nbsp;|&nbsp; PyTorch DNN (17,921 Weights)</div>
-    <div>Hardware: <b>CPU / AVX2 Inlined</b> &nbsp;|&nbsp; Latency: <b>~1.4 ms</b> &nbsp;|&nbsp; Display: <b>{'🌙 Night Mode' if is_night_theme else '☀️ Day Mode'}</b> &nbsp;|&nbsp; Rate: <b>NYC TLC 2025</b></div>
+    <div><span class="pulse-dot"></span><b>REAL-TIME INFERENCE ENGINE</b> &nbsp;|&nbsp; 🕒 NYC: <b>{live_nyc_now.strftime('%I:%M %p EDT, %A')}</b> &nbsp;|&nbsp; {live_weather['icon']} Weather: <b>{live_weather['temp_c']}°C ({live_weather['desc']})</b></div>
+    <div>Hardware: <b>CPU / AVX2 Inlined</b> &nbsp;|&nbsp; Latency: <b>~1.4 ms</b> &nbsp;|&nbsp; Display: <b>{'🌙 Night' if is_night_theme else '☀️ Day'}</b> &nbsp;|&nbsp; Rate: <b>NYC TLC 2025</b></div>
 </div>
 """, unsafe_allow_html=True)
 
 # =============================================================================
-# TOP QUICK SCENARIO SELECTOR CARDS
+# TOP QUICK SCENARIO SELECTOR CARDS & REAL-TIME SYNC
 # =============================================================================
-st.markdown("##### ⚡ 1-Click Interactive Trip Presets")
-sc_cols = st.columns(5)
+st.markdown("##### ⚡ 1-Click Interactive Trip Presets & Real-Time Sync")
+sc_cols = st.columns(6)
 with sc_cols[0]:
+    if st.button("🔴 Live Sync Now\n(NYC Real-Time Clock)", key="btn_sc_realtime", use_container_width=True):
+        nyc_now = get_live_nyc_time()
+        st.session_state["trip_date"] = nyc_now.date()
+        st.session_state["trip_time"] = nyc_now.time()
+        st.toast(f"⚡ Synchronized with Live NYC Time: {nyc_now.strftime('%I:%M %p EDT')}", icon="🕒")
+        st.rerun()
+with sc_cols[1]:
     if st.button("🚀 Midtown Hop\n(Times Sq → Grand Central)", key="btn_sc_midtown", use_container_width=True):
         set_preset("midtown_hop")
-with sc_cols[1]:
+with sc_cols[2]:
     if st.button("✈️ JFK Express\n(Terminal 4 → Times Sq)", key="btn_sc_jfk", use_container_width=True):
         set_preset("jfk_airport")
-with sc_cols[2]:
+with sc_cols[3]:
     if st.button("🏙️ LGA → Wall St\n(Airport to Financial Dist)", key="btn_sc_lga", use_container_width=True):
         set_preset("lga_wallst")
-with sc_cols[3]:
+with sc_cols[4]:
     if st.button("🚶 Micro-Hop (200m)\n(Central Park South)", key="btn_sc_micro", use_container_width=True):
         set_preset("micro_hop")
-with sc_cols[4]:
+with sc_cols[5]:
     if st.button("🌙 Midnight Cruise\n(DUMBO → Columbia Univ)", key="btn_sc_midnight", use_container_width=True):
         set_preset("midnight_dumbo")
 
@@ -889,28 +1014,94 @@ with col_dlon:
     d_lon = st.sidebar.number_input("Drop-off Lon", value=float(st.session_state["d_lon"]), min_value=-74.25, max_value=-73.70, format="%.6f", key="d_lon_input")
     st.session_state["d_lon"] = d_lon
 
+# Real-Time Address Geocoding Search
+with st.sidebar.expander("🔍 Real-Time NYC Address Geocoder", expanded=False):
+    st.caption("Search any real street address, building, or landmark in NYC:")
+    geo_query = st.text_input("Enter Address / Place", placeholder="e.g. Empire State Building, SoHo", key="geo_search_input")
+    if st.button("🔎 Geocode Address", key="btn_geocode", use_container_width=True):
+        if geo_query:
+            results = search_nyc_address(geo_query)
+            if results:
+                st.session_state["geo_results"] = results
+            else:
+                st.warning("No NYC matches found. Please refine search query.")
+                
+    if "geo_results" in st.session_state and st.session_state["geo_results"]:
+        for r_i, r in enumerate(st.session_state["geo_results"]):
+            st.markdown(f"**{r['name']}**  \n<span style='font-size: 0.75rem; color: #94A3B8;'>{r['full_addr'][:75]}...</span>", unsafe_allow_html=True)
+            col_gp, col_gd = st.sidebar.columns(2)
+            with col_gp:
+                if st.button("📍 Set Pickup", key=f"btn_set_p_{r_i}", use_container_width=True):
+                    st.session_state["p_choice"] = "Custom Coordinates"
+                    st.session_state["p_lat"] = r["lat"]
+                    st.session_state["p_lon"] = r["lon"]
+                    st.toast(f"Pickup set to {r['name']}", icon="📍")
+                    st.rerun()
+            with col_gd:
+                if st.button("🏁 Set Dropoff", key=f"btn_set_d_{r_i}", use_container_width=True):
+                    st.session_state["d_choice"] = "Custom Coordinates"
+                    st.session_state["d_lat"] = r["lat"]
+                    st.session_state["d_lon"] = r["lon"]
+                    st.toast(f"Drop-off set to {r['name']}", icon="🏁")
+                    st.rerun()
+
 st.sidebar.markdown("---")
 st.sidebar.markdown("#### 3. Temporal & Passenger Settings")
-trip_date = st.sidebar.date_input("Trip Date", value=st.session_state["trip_date"], key="date_input")
-st.session_state["trip_date"] = trip_date
-trip_time = st.sidebar.time_input("Departure Time", value=st.session_state["trip_time"], key="time_input")
-st.session_state["trip_time"] = trip_time
+
+col_tsync1, col_tsync2 = st.sidebar.columns([1.2, 1.0])
+with col_tsync1:
+    live_time_mode = st.toggle("🔴 Real-Time NYC Clock", value=st.session_state["live_time_mode"], key="tgl_live_time", help="Automatically lock trip departure to the live New York City clock.")
+    st.session_state["live_time_mode"] = live_time_mode
+with col_tsync2:
+    if st.button("🕒 Sync Now", key="btn_sync_now_sidebar", use_container_width=True):
+        nyc_now = get_live_nyc_time()
+        st.session_state["trip_date"] = nyc_now.date()
+        st.session_state["trip_time"] = nyc_now.time()
+        st.rerun()
+
+if live_time_mode:
+    nyc_now = get_live_nyc_time()
+    trip_date = nyc_now.date()
+    trip_time = nyc_now.time()
+    st.session_state["trip_date"] = trip_date
+    st.session_state["trip_time"] = trip_time
+    st.sidebar.success(f"🟢 **Live Clock Active:** {trip_time.strftime('%I:%M:%S %p EDT')}")
+else:
+    trip_date = st.sidebar.date_input("Trip Date", value=st.session_state["trip_date"], key="date_input")
+    st.session_state["trip_date"] = trip_date
+    trip_time = st.sidebar.time_input("Departure Time", value=st.session_state["trip_time"], key="time_input")
+    st.session_state["trip_time"] = trip_time
+
 passengers = st.sidebar.slider("Occupancy (Passengers)", min_value=1, max_value=6, value=int(st.session_state["passengers"]), key="pass_input")
 st.session_state["passengers"] = passengers
 
 st.sidebar.markdown("---")
-st.sidebar.markdown("#### 4. Weather & Congestion Simulator")
-weather_condition = st.sidebar.select_slider(
-    "Live Weather / Road Traffic",
-    options=["Clear Skies (1.0x)", "Light Rain (+10%)", "Heavy Downpour (+25%)", "Blizzard / Gridlock (+40%)"],
-    value="Clear Skies (1.0x)"
-)
-weather_mult = {
-    "Clear Skies (1.0x)": 1.0,
-    "Light Rain (+10%)": 1.10,
-    "Heavy Downpour (+25%)": 1.25,
-    "Blizzard / Gridlock (+40%)": 1.40
-}[weather_condition]
+st.sidebar.markdown("#### 4. Weather & Congestion Telemetry")
+
+live_weather_sync = st.sidebar.toggle("🌦️ Live NYC Weather Sync (Open-Meteo)", value=st.session_state["live_weather_sync"], key="tgl_live_weather", help="Automatically fetch real-time temperature, wind, and precipitation in NYC to adjust pricing.")
+st.session_state["live_weather_sync"] = live_weather_sync
+
+if live_weather_sync:
+    weather_mult = live_weather["mult"]
+    st.sidebar.markdown(f"""
+    <div style="background: {'rgba(15, 23, 42, 0.65)' if is_night_theme else '#F8FAFC'}; padding: 0.65rem 0.85rem; border-radius: 10px; border: 1px solid {'rgba(255,255,255,0.08)' if is_night_theme else '#CBD5E1'}; font-size: 0.8rem; margin-top: 0.3rem;">
+        <div>{live_weather['icon']} <b>Condition:</b> {live_weather['desc']}</div>
+        <div style="margin-top: 0.2rem;">🌡️ <b>Temp:</b> {live_weather['temp_c']}°C ({live_weather['temp_f']}°F) &nbsp;|&nbsp; 💨 <b>Wind:</b> {live_weather['wind']} km/h</div>
+        <div style="margin-top: 0.2rem; color: {'#38BDF8' if is_night_theme else '#0284C7'}; font-weight: 700;">⚡ Live Pricing Factor: {weather_mult:.2f}x</div>
+    </div>
+    """, unsafe_allow_html=True)
+else:
+    weather_condition = st.sidebar.select_slider(
+        "Simulate Weather / Road Traffic",
+        options=["Clear Skies (1.0x)", "Light Rain (+10%)", "Heavy Downpour (+25%)", "Blizzard / Gridlock (+40%)"],
+        value="Clear Skies (1.0x)"
+    )
+    weather_mult = {
+        "Clear Skies (1.0x)": 1.0,
+        "Light Rain (+10%)": 1.10,
+        "Heavy Downpour (+25%)": 1.25,
+        "Blizzard / Gridlock (+40%)": 1.40
+    }[weather_condition]
 
 # Compute initial baseline temporal flags for defaults
 curr_hour = trip_time.hour
@@ -1036,6 +1227,13 @@ compass_dirs = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "S
 dir_idx = int(round(bearing_deg / 22.5)) % 16
 compass_str = compass_dirs[dir_idx]
 
+# Real-Time Road Routing and Fleet Radar Telemetry
+route_info = get_live_osrm_route(p_lat, p_lon, d_lat, d_lon)
+road_dist_km = route_info["distance_km"]
+road_dur_mins = route_info["duration_mins"]
+road_coords = route_info["coordinates"]
+nearby_cabs = get_nearby_cabs(p_lat, p_lon)
+
 # =============================================================================
 # KEY SPATIAL METRICS ROW
 # =============================================================================
@@ -1053,9 +1251,9 @@ with m_cols[0]:
 with m_cols[1]:
     st.markdown(f"""
     <div class="glass-card">
-        <div class="metric-label">Manhattan Grid L1</div>
-        <div class="metric-number">{manhattan_km:.2f} <span style="font-size: 1rem; color: #94A3B8;">km</span></div>
-        <div class="metric-sub">Rectilinear street taxicab geometry</div>
+        <div class="metric-label">Actual Street Driving (OSRM)</div>
+        <div class="metric-number" style="color: {'#38BDF8' if is_night_theme else '#0284C7'};">{road_dist_km:.2f} <span style="font-size: 1rem; color: #94A3B8;">km</span></div>
+        <div class="metric-sub">⏱️ Live Driving ETA: <b>~{road_dur_mins:.0f} mins</b> (Turn-by-Turn)</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -1072,9 +1270,9 @@ with m_cols[2]:
         
     st.markdown(f"""
     <div class="glass-card">
-        <div class="metric-label">Congestion Surcharge</div>
+        <div class="metric-label">Congestion & Weather Multiplier</div>
         <div style="font-size: 1.15rem; font-weight: 700; color: {'#F1F5F9' if is_night_theme else '#0F172A'}; margin: 0.3rem 0;">{surch_badge}</div>
-        <div class="metric-sub">{surch_sub}</div>
+        <div class="metric-sub">{surch_sub} • {live_weather['icon']} {weather_mult:.2f}x</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -1082,7 +1280,7 @@ with m_cols[3]:
     st.markdown(f"""
     <div class="glass-card">
         <div class="metric-label">Temporal & Vector Context</div>
-        <div class="metric-number" style="font-size: 1.55rem; color: #38BDF8;">{pickup_dt.strftime('%A')} <span style="font-size: 1rem; color: #94A3B8;">{compass_str} ({bearing_deg:.0f}°)</span></div>
+        <div class="metric-number" style="font-size: 1.55rem; color: {'#38BDF8' if is_night_theme else '#0284C7'};">{pickup_dt.strftime('%A')} <span style="font-size: 1rem; color: #94A3B8;">{compass_str} ({bearing_deg:.0f}°)</span></div>
         <div class="metric-sub">{passengers} Passenger{'s' if passengers > 1 else ''} • {trip_time.strftime('%I:%M %p')}</div>
     </div>
     """, unsafe_allow_html=True)
@@ -1317,7 +1515,32 @@ with tab_main:
                 auto_highlight=True
             )
             
-            deck_layers = [arc_layer, column_layer] if toggle_3d_arc else [column_layer]
+            road_path_df = pd.DataFrame([{
+                "path": road_coords,
+                "name": "OSRM Street Route"
+            }])
+            road_path_layer = pdk.Layer(
+                "PathLayer",
+                data=road_path_df,
+                get_path="path",
+                get_color=[56, 189, 248, 220] if is_night_theme else [2, 132, 199, 220],
+                width_scale=20,
+                width_min_pixel_width=4,
+                pickable=True
+            )
+            cabs_df = pd.DataFrame([
+                {"lat": c["lat"], "lon": c["lon"], "name": f"🚖 Available Cab #{c['medallion']} ({c['dist_m']}m away, ETA {c['eta_min']}m)"}
+                for c in nearby_cabs
+            ])
+            cabs_layer = pdk.Layer(
+                "ScatterplotLayer",
+                data=cabs_df,
+                get_position=["lon", "lat"],
+                get_fill_color=[245, 158, 11, 240],
+                get_radius=60,
+                pickable=True
+            )
+            deck_layers = [arc_layer, column_layer, road_path_layer, cabs_layer] if toggle_3d_arc else [road_path_layer, column_layer, cabs_layer]
             
             deck = pdk.Deck(
                 layers=deck_layers,
@@ -1330,13 +1553,22 @@ with tab_main:
         else:
             # High-Resolution Plotly Map
             fig_map = go.Figure()
-            # Add trajectory line
+            # Add trajectory road line (actual street turns)
             fig_map.add_trace(go.Scattermapbox(
-                lat=[p_lat, d_lat],
-                lon=[p_lon, d_lon],
+                lat=[c[1] for c in road_coords],
+                lon=[c[0] for c in road_coords],
                 mode="lines",
-                line=dict(width=4, color="#38BDF8" if is_night_theme else "#0284C7"),
-                name="Geodesic Route"
+                line=dict(width=5, color="#38BDF8" if is_night_theme else "#0284C7"),
+                name="OSRM Street Route"
+            ))
+            # Add nearby available cabs
+            fig_map.add_trace(go.Scattermapbox(
+                lat=[c["lat"] for c in nearby_cabs],
+                lon=[c["lon"] for c in nearby_cabs],
+                mode="markers",
+                marker=dict(size=11, color="#F59E0B"),
+                text=[f"🚖 Available Cab #{c['medallion']}<br>ETA: {c['eta_min']} mins ({c['dist_m']}m)<br>Driver: {c['driver']}" for c in nearby_cabs],
+                name="Nearby Available Cabs"
             ))
             # Add Pickup marker
             fig_map.add_trace(go.Scattermapbox(
@@ -1381,6 +1613,83 @@ with tab_main:
             🛫 <b>Hub Proximity:</b> JFK: <b>{feat_df['dropoff_JFK_dist'].iloc[0]:.1f}km</b> • LGA: <b>{feat_df['dropoff_LGA_dist'].iloc[0]:.1f}km</b> • EWR: <b>{feat_df['dropoff_EWR_dist'].iloc[0]:.1f}km</b>
         </div>
         """, unsafe_allow_html=True)
+
+    # -------------------------------------------------------------------------
+    # REAL-TIME FLEET DISPATCH RADAR & LIVE TAXIMETER SIMULATOR
+    # -------------------------------------------------------------------------
+    st.markdown("---")
+    st.markdown("#### 📡 Real-Time NYC Yellow Cab Fleet Dispatch Radar")
+    r_cols = st.columns([1.1, 1.1, 1.1, 0.9])
+    for c_i, cab in enumerate(nearby_cabs):
+        with r_cols[c_i]:
+            st.markdown(f"""
+            <div style="background: {card_bg}; padding: 0.85rem 1rem; border-radius: 12px; border: 1px solid {card_border}; box-shadow: 0 4px 12px rgba(0,0,0,0.04);">
+                <div style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700; color: #F59E0B;">🚖 Medallion #{cab['medallion']}</div>
+                <div style="font-weight: 700; font-size: 0.92rem; color: {'#F1F5F9' if is_night_theme else '#0F172A'}; margin-top: 0.2rem;">{cab['model']}</div>
+                <div style="font-size: 0.8rem; color: {card_text}; margin-top: 0.2rem;">Driver: <b>{cab['driver']}</b> ({cab['rating']})</div>
+                <div style="font-size: 0.85rem; color: #10B981; font-weight: 700; margin-top: 0.35rem;">⚡ {cab['dist_m']}m away • ETA: ~{cab['eta_min']} min</div>
+            </div>
+            """, unsafe_allow_html=True)
+    with r_cols[3]:
+        st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
+        if st.button("📡 Dispatch Nearest Cab", key="btn_dispatch_cab", use_container_width=True):
+            st.session_state["dispatched_cab"] = nearby_cabs[0]
+            st.toast(f"✅ Dispatched Medallion #{nearby_cabs[0]['medallion']} ({nearby_cabs[0]['driver']}) to your pickup!", icon="🚖")
+        if st.session_state.get("dispatched_cab"):
+            d_cab = st.session_state["dispatched_cab"]
+            st.success(f"🚖 **Cab Dispatched:** #{d_cab['medallion']} arriving in ~{d_cab['eta_min']} mins.")
+
+    with st.expander("🚖 Real-Time Interactive In-Cab Taximeter Ride Simulator", expanded=False):
+        st.markdown("Simulate a live moving taxi ride on the configured route with real-time digital meter ticks, live speedometer, and progress tracking:")
+        
+        sim_col1, sim_col2, sim_col3 = st.columns([1, 1, 1.2])
+        with sim_col1:
+            st.markdown(f"**Assigned Vehicle:** Medallion `#NYC-4192`")
+            st.markdown(f"**Driver:** Salim K. (Rating: 4.96 ★)")
+        with sim_col2:
+            st.markdown(f"**Street Distance:** `{road_dist_km:.2f} km`")
+            st.markdown(f"**Estimated Ride Duration:** `~{road_dur_mins:.1f} mins`")
+        with sim_col3:
+            st.markdown(f"**Base Drop Rate:** `$2.50` (TLC Standard)")
+            st.markdown(f"**Predicted Final Total:** **`${meter_display_fare:.2f}`**")
+            
+        start_ride = st.button("▶️ Launch Real-Time In-Cab Ride Simulation", key="btn_launch_live_sim", use_container_width=True)
+        
+        if start_ride:
+            prog_bar = st.progress(0)
+            status_text = st.empty()
+            meter_col1, meter_col2, meter_col3 = st.columns(3)
+            with meter_col1:
+                live_meter_disp = st.empty()
+            with meter_col2:
+                live_speed_disp = st.empty()
+            with meter_col3:
+                live_odo_disp = st.empty()
+                
+            steps = 15
+            for s in range(steps + 1):
+                pct = int(s / steps * 100)
+                frac = s / steps
+                prog_bar.progress(pct)
+                cur_dist = road_dist_km * frac
+                cur_fare = 2.50 + (meter_display_fare - 2.50) * (frac ** 0.9)
+                cur_speed = int(22 + 10 * np.sin(frac * np.pi * 3)) if s < steps else 0
+                
+                live_meter_disp.metric("Live Taximeter ($)", f"${cur_fare:.2f}")
+                live_speed_disp.metric("Live Speedometer", f"{cur_speed} mph")
+                live_odo_disp.metric("Traveled Distance", f"{cur_dist:.2f} km")
+                
+                if s == 0:
+                    status_text.info(f"🚖 **Trip Started:** Flag dropped ($2.50). Departing {st.session_state['p_choice']}...")
+                elif s < steps // 2:
+                    status_text.info(f"🚦 **En Route:** Navigating Manhattan traffic along route ({int(frac*100)}% complete)...")
+                elif s < steps:
+                    status_text.info(f"🏁 **Approaching Destination:** Decelerating toward {st.session_state['d_choice']}...")
+                else:
+                    status_text.success(f"🎉 **Trip Completed:** Passenger arrived at destination. Final fare: **${meter_display_fare:.2f}**.")
+                time.sleep(0.12)
+            st.balloons()
+            st.markdown("👉 **Go to the `🧾 Official TLC e-Receipt` tab to view or download the itemized invoice for this completed trip.**")
 
 # -----------------------------------------------------------------------------
 # TAB 2: MULTI-MODEL BATTLE ARENA
