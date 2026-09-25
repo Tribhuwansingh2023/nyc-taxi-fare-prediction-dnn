@@ -14,6 +14,7 @@ An end-to-end deep learning engineering pipeline designed to predict NYC Yellow 
 - [Academic Information](#-academic-information)
 - [Project Team Registry](#-project-team-registry)
 - [Problem Overview & Engineering Pipeline](#-problem-overview--engineering-pipeline)
+- [Recommended Dataset](#-recommended-dataset)
 - [Repository Structure](#-repository-structure)
 - [Installation & Environment Setup](#-installation--environment-setup)
 - [Quickstart & Execution Guide](#-quickstart--execution-guide)
@@ -60,6 +61,17 @@ This project provides an end-to-end production-grade solution:
 3. **Leak-Free Transformation:** Uses a fitted `StandardScaler` calibrated exclusively on the training split ($70\%$), preventing data contamination into validation ($15\%$) and test ($15\%$) sets.
 4. **Deep Neural Network Optimization:** A 4-layer PyTorch feedforward architecture with Batch Normalization, Dropout ($0.20, 0.10$), ReLU activations, and Huber Loss ($\delta=1.0$) trained with Adam and `ReduceLROnPlateau`.
 5. **Interactive UI & Test Harness:** Streamlit application providing real-time fare inference, interactive map visualization, and a 4-scenario deployment verification test harness.
+
+---
+
+## 📊 Recommended Dataset
+
+Students may use the NYC Taxi Fare Prediction dataset containing historical taxi trips and fare amounts. 
+
+- **Dataset Source:** Kaggle – New York City Taxi Fare Prediction  
+- **Official Competition Link:** [https://www.kaggle.com/competitions/new-york-city-taxi-fare-prediction](https://www.kaggle.com/competitions/new-york-city-taxi-fare-prediction)  
+- **Data Overview:** The dataset comprises historical New York City Yellow Taxi ride observations with trip pickup/dropoff coordinates, datetime timestamps, passenger counts, and recorded target fare amounts.
+- **Project Sampling & Partitions:** For experimental tractability and leak-free evaluation, a verified sample of 100,000 records was audited, cleansed of boundary anomalies, and split into **70% Train**, **15% Validation**, and **15% Test** partitions.
 
 ---
 
