@@ -74,19 +74,20 @@ def is_manhattan_congestion_zone(lat: float, lon: float) -> bool:
 
 
 def calculate_meter_estimate(
-    pickup_lat: Any,
-    pickup_lon: Any,
-    dropoff_lat: Any,
-    dropoff_lon: Any,
-    trip_date: Any,
-    trip_time: Any,
+    pickup_lat: Any = None,
+    pickup_lon: Any = None,
+    dropoff_lat: Any = None,
+    dropoff_lon: Any = None,
+    trip_date: Any = None,
+    trip_time: Any = None,
     passenger_count: int = 1,
     road_distance_km: Optional[float] = None,
     air_distance_km: Optional[float] = None,
     duration_minutes: Optional[float] = None,
     weather_multiplier: float = 1.0,
     is_jfk_flat: bool = False,
-    rule_set_key: str = "current_2025"
+    rule_set_key: str = "current_2025",
+    **kwargs: Any
 ) -> Dict[str, Any]:
     """
     Calculates a transparent, rule-based reference fare estimate based on official
@@ -108,6 +109,30 @@ def calculate_meter_estimate(
     Returns:
         Structured dictionary containing all itemized fare components.
     """
+    # Keyword argument aliases and tuple unpackings
+    if "pickup" in kwargs and kwargs["pickup"]:
+        p = kwargs["pickup"]
+        if isinstance(p, (tuple, list)) and len(p) >= 2:
+            pickup_lat, pickup_lon = p[0], p[1]
+    elif isinstance(pickup_lat, (tuple, list)) and len(pickup_lat) >= 2 and pickup_lon is None:
+        pickup_lat, pickup_lon = pickup_lat[0], pickup_lat[1]
+
+    if "dropoff" in kwargs and kwargs["dropoff"]:
+        d = kwargs["dropoff"]
+        if isinstance(d, (tuple, list)) and len(d) >= 2:
+            dropoff_lat, dropoff_lon = d[0], d[1]
+    elif isinstance(dropoff_lat, (tuple, list)) and len(dropoff_lat) >= 2 and dropoff_lon is None:
+        dropoff_lat, dropoff_lon = dropoff_lat[0], dropoff_lat[1]
+
+    if "date" in kwargs and trip_date is None:
+        trip_date = kwargs["date"]
+    if "time" in kwargs and trip_time is None:
+        trip_time = kwargs["time"]
+    if "road_distance" in kwargs and road_distance_km is None:
+        road_distance_km = kwargs["road_distance"]
+    if "duration" in kwargs and duration_minutes is None:
+        duration_minutes = kwargs["duration"]
+
     # 1. Validation: Coordinates
     if pickup_lat is None or pickup_lon is None or dropoff_lat is None or dropoff_lon is None:
         return {
@@ -268,6 +293,9 @@ def calculate_meter_estimate(
             "overnight": overnight_surcharge,
             "congestion_zone": congestion_surcharge
         },
+        "is_rush_applied": rush_surcharge > 0,
+        "is_night_applied": overnight_surcharge > 0,
+        "is_congestion_applied": congestion_surcharge > 0,
         "taxes": total_taxes,
         "tax_breakdown": {
             "mta_tax": mta_tax,
@@ -278,6 +306,7 @@ def calculate_meter_estimate(
         "distance_used_km": round(dist_km, 2),
         "distance_source": dist_source,
         "duration_used_mins": duration_minutes if duration_minutes is not None else 0.0,
+        "duration_used_minutes": duration_minutes if duration_minutes is not None else 0.0,
         "rules_meta": {
             "label": "Reference Fare Estimate",
             "jurisdiction": rules["jurisdiction"],

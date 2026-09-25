@@ -1970,13 +1970,15 @@ nearby_cabs = get_nearby_cabs(p_lat, p_lon)
 # REALISTIC FARE ESTIMATION ENGINE (FEATURE #3)
 # =============================================================================
 ref_fare_res = calculate_meter_estimate(
-    pickup=(p_lat, p_lon),
-    dropoff=(d_lat, d_lon),
-    date=trip_date,
-    time=trip_time,
+    pickup_lat=p_lat,
+    pickup_lon=p_lon,
+    dropoff_lat=d_lat,
+    dropoff_lon=d_lon,
+    trip_date=trip_date,
+    trip_time=trip_time,
     passenger_count=passengers,
-    road_distance=road_dist_km,
-    duration=road_dur_mins,
+    road_distance_km=road_dist_km,
+    duration_minutes=road_dur_mins,
     rule_set_key="current_2025"
 )
 ref_estimate = ref_fare_res["estimated_total"]
