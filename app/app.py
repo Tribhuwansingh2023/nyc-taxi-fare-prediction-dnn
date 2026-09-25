@@ -604,6 +604,38 @@ weather_mult = {
     "Blizzard / Gridlock (+40%)": 1.40
 }[weather_condition]
 
+# Compute initial baseline temporal flags for defaults
+curr_hour = trip_time.hour
+auto_rush = bool(trip_date.weekday() < 5 and ((16 <= curr_hour < 20) or (7 <= curr_hour < 10)))
+auto_night = bool(curr_hour >= 20 or curr_hour < 6)
+
+st.sidebar.markdown("---")
+st.sidebar.markdown("#### 5. 🎚️ Live Surcharge & Tariff Toggles")
+toggle_rush = st.sidebar.toggle(
+    "⚡ Peak Rush-Hour Surcharge (+$1.00)",
+    value=auto_rush,
+    key="tgl_rush",
+    help="Manually force or override the NYC TLC 4:00 PM – 8:00 PM weekday congestion surcharge."
+)
+toggle_night = st.sidebar.toggle(
+    "🌙 Overnight Surcharge (+$0.50)",
+    value=auto_night,
+    key="tgl_night",
+    help="Manually force or override the NYC TLC 8:00 PM – 6:00 AM overnight tariff surcharge."
+)
+toggle_jfk_flat = st.sidebar.toggle(
+    "✈️ JFK Airport Flat-Rate Regime ($70.00)",
+    value=False,
+    key="tgl_jfk_flat",
+    help="Apply the official NYC TLC Flat Fare regulation for trips between Manhattan and JFK International Airport."
+)
+toggle_tip = st.sidebar.toggle(
+    "💰 Include Gratuity (18% Tip) in Meter",
+    value=False,
+    key="tgl_tip",
+    help="Automatically include NYC standard 18% yellow cab gratuity on the main taximeter display."
+)
+
 st.sidebar.markdown("---")
 st.sidebar.markdown("🏛️ **Siksha 'O' Anusandhan (ITER)**  \nCourse: **CSE 4192** | Lab Assignment 02")
 
@@ -625,10 +657,10 @@ raw_input_df = pd.DataFrame([{
 feat_df = extract_features(raw_input_df)
 distance_km = float(feat_df["haversine_dist_km"].iloc[0])
 manhattan_km = float(feat_df["manhattan_dist_km"].iloc[0])
-is_rush = bool(feat_df["is_rush_hour"].iloc[0])
+is_rush = toggle_rush
+is_night = toggle_night
 is_wknd = bool(feat_df["is_weekend"].iloc[0])
 hour_val = int(feat_df["hour"].iloc[0])
-is_night = (hour_val >= 20 or hour_val < 6)
 bearing_deg = float(feat_df["bearing_deg"].iloc[0])
 
 # Perform model inference
@@ -637,32 +669,58 @@ lgb_pred = 2.50
 lr_pred = 2.50
 layer_activations = {}
 
-if scaler is not None and dnn_model is not None:
-    X_input = feat_df[FEATURE_COLS].values
-    X_scaled = scaler.transform(X_input)
-    t_input = torch.tensor(X_scaled, dtype=torch.float32)
-    
-    with torch.no_grad():
-        # Compute forward pass and capture intermediate activations
-        x1 = torch.relu(dnn_model.bn1(dnn_model.fc1(t_input)))
-        x2 = torch.relu(dnn_model.bn2(dnn_model.fc2(x1)))
-        x3 = torch.relu(dnn_model.fc3(x2))
-        raw_pred = dnn_model.out(x3).item()
+if toggle_jfk_flat:
+    pred_fare = max(2.50, round(70.00 * weather_mult, 2))
+    lgb_pred = max(2.50, round(70.00 * weather_mult, 2))
+    lr_pred = max(2.50, round(70.00 * weather_mult, 2))
+    est_rule_fare = max(2.50, round(70.00 * weather_mult, 2))
+    if scaler is not None and dnn_model is not None:
+        X_input = feat_df[FEATURE_COLS].values
+        X_scaled = scaler.transform(X_input)
+        t_input = torch.tensor(X_scaled, dtype=torch.float32)
+        with torch.no_grad():
+            x1 = torch.relu(dnn_model.bn1(dnn_model.fc1(t_input)))
+            x2 = torch.relu(dnn_model.bn2(dnn_model.fc2(x1)))
+            x3 = torch.relu(dnn_model.fc3(x2))
+            layer_activations["L1_mean"] = float(torch.mean(x1).item())
+            layer_activations["L2_mean"] = float(torch.mean(x2).item())
+            layer_activations["L3_mean"] = float(torch.mean(x3).item())
+            layer_activations["L1_active_pct"] = float(torch.sum(x1 > 0).item() / x1.numel() * 100)
+            layer_activations["L2_active_pct"] = float(torch.sum(x2 > 0).item() / x2.numel() * 100)
+            layer_activations["L3_active_pct"] = float(torch.sum(x3 > 0).item() / x3.numel() * 100)
+else:
+    if scaler is not None and dnn_model is not None:
+        X_input = feat_df[FEATURE_COLS].values
+        X_scaled = scaler.transform(X_input)
+        t_input = torch.tensor(X_scaled, dtype=torch.float32)
         
-        layer_activations["L1_mean"] = float(torch.mean(x1).item())
-        layer_activations["L2_mean"] = float(torch.mean(x2).item())
-        layer_activations["L3_mean"] = float(torch.mean(x3).item())
+        with torch.no_grad():
+            # Compute forward pass and capture intermediate activations
+            x1 = torch.relu(dnn_model.bn1(dnn_model.fc1(t_input)))
+            x2 = torch.relu(dnn_model.bn2(dnn_model.fc2(x1)))
+            x3 = torch.relu(dnn_model.fc3(x2))
+            raw_pred = dnn_model.out(x3).item()
+            
+            layer_activations["L1_mean"] = float(torch.mean(x1).item())
+            layer_activations["L2_mean"] = float(torch.mean(x2).item())
+            layer_activations["L3_mean"] = float(torch.mean(x3).item())
+            layer_activations["L1_active_pct"] = float(torch.sum(x1 > 0).item() / x1.numel() * 100)
+            layer_activations["L2_active_pct"] = float(torch.sum(x2 > 0).item() / x2.numel() * 100)
+            layer_activations["L3_active_pct"] = float(torch.sum(x3 > 0).item() / x3.numel() * 100)
+            
+        pred_fare = max(2.50, round(raw_pred * weather_mult, 2))
         
-    pred_fare = max(2.50, round(raw_pred * weather_mult, 2))
-    
-    if "LightGBM" in baselines:
-        lgb_pred = max(2.50, round(float(baselines["LightGBM"].predict(X_scaled)[0]) * weather_mult, 2))
-    if "Linear Regression" in baselines:
-        lr_pred = max(2.50, round(float(baselines["Linear Regression"].predict(X_scaled)[0]) * weather_mult, 2))
+        if "LightGBM" in baselines:
+            lgb_pred = max(2.50, round(float(baselines["LightGBM"].predict(X_scaled)[0]) * weather_mult, 2))
+        if "Linear Regression" in baselines:
+            lr_pred = max(2.50, round(float(baselines["Linear Regression"].predict(X_scaled)[0]) * weather_mult, 2))
 
-# NYC TLC Official Standard Regulatory Meter Rule
-est_rule_fare = 2.50 + (distance_km * 1.56) + (1.00 if is_rush else 0) + (0.50 if is_night else 0) + 0.50 + 0.30
-est_rule_fare = max(2.50, round(est_rule_fare * weather_mult, 2))
+    # NYC TLC Official Standard Regulatory Meter Rule
+    est_rule_fare = 2.50 + (distance_km * 1.56) + (1.00 if is_rush else 0) + (0.50 if is_night else 0) + 0.50 + 0.30
+    est_rule_fare = max(2.50, round(est_rule_fare * weather_mult, 2))
+
+# Dynamic taximeter display fare (with optional gratuity)
+meter_display_fare = round(pred_fare * 1.18, 2) if toggle_tip else pred_fare
 infer_duration_ms = (time.perf_counter() - t_start_infer) * 1000
 
 # Direction heading compass string
@@ -741,15 +799,97 @@ tab_main, tab_battle, tab_whatif, tab_receipt, tab_theory, tab_viz, tab_test, ta
 # TAB 1: LIVE TRIP STUDIO (HUD METER + DUAL MAP ENGINE)
 # -----------------------------------------------------------------------------
 with tab_main:
+    # Actionable Top Controls Bar with Toggles
+    tgl_c1, tgl_c2, tgl_c3 = st.columns([1, 1, 1])
+    with tgl_c1:
+        toggle_neural_inspect = st.toggle(
+            "🔬 Deep Neural Layer Inspector",
+            value=False,
+            key="tgl_neural_inspect",
+            help="Probe live 33-feature normalized input tensor and internal hidden layer neuron activations."
+        )
+    with tgl_c2:
+        toggle_quick_compare = st.toggle(
+            "⚡ Multi-Model Comparison HUD",
+            value=False,
+            key="tgl_quick_compare",
+            help="Display real-time side-by-side benchmark predictions from LightGBM, Linear Regression, and TLC formula."
+        )
+    with tgl_c3:
+        toggle_3d_arc = st.toggle(
+            "🌐 3D Elevation Route Arc",
+            value=True,
+            key="tgl_3d_arc",
+            help="Render high-contrast 3D elevated flight trajectory arc and landmark columns on the geospatial map."
+        )
+
+    # Multi-Model Comparison Strip if toggled
+    if toggle_quick_compare:
+        st.markdown(f"""
+        <div style="display: flex; gap: 0.8rem; flex-wrap: wrap; margin: 0.6rem 0 1rem 0; padding: 0.8rem 1.2rem; background: rgba(15, 23, 42, 0.85); border-radius: 14px; border: 1px solid rgba(56, 189, 248, 0.3); align-items: center; justify-content: space-between;">
+            <div><span style="color: #94A3B8; font-size: 0.72rem; text-transform: uppercase; font-weight: 700;">PyTorch DNN:</span> <b style="color: #10B981; font-size: 1.15rem; font-family: 'JetBrains Mono';">${pred_fare:.2f}</b></div>
+            <div style="border-left: 1px solid rgba(255,255,255,0.1); height: 22px;"></div>
+            <div><span style="color: #94A3B8; font-size: 0.72rem; text-transform: uppercase; font-weight: 700;">LightGBM:</span> <b style="color: #38BDF8; font-size: 1.15rem; font-family: 'JetBrains Mono';">${lgb_pred:.2f}</b> <span style="font-size: 0.75rem; color: {'#10B981' if lgb_pred <= pred_fare else '#EF4444'};">({lgb_pred - pred_fare:+.2f})</span></div>
+            <div style="border-left: 1px solid rgba(255,255,255,0.1); height: 22px;"></div>
+            <div><span style="color: #94A3B8; font-size: 0.72rem; text-transform: uppercase; font-weight: 700;">Linear OLS:</span> <b style="color: #F59E0B; font-size: 1.15rem; font-family: 'JetBrains Mono';">${lr_pred:.2f}</b> <span style="font-size: 0.75rem; color: {'#10B981' if lr_pred <= pred_fare else '#EF4444'};">({lr_pred - pred_fare:+.2f})</span></div>
+            <div style="border-left: 1px solid rgba(255,255,255,0.1); height: 22px;"></div>
+            <div><span style="color: #94A3B8; font-size: 0.72rem; text-transform: uppercase; font-weight: 700;">TLC Regulatory:</span> <b style="color: #E2E8F0; font-size: 1.15rem; font-family: 'JetBrains Mono';">${est_rule_fare:.2f}</b> <span style="font-size: 0.75rem; color: {'#10B981' if est_rule_fare <= pred_fare else '#EF4444'};">({est_rule_fare - pred_fare:+.2f})</span></div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    # Live Neural Inspector if toggled
+    if toggle_neural_inspect and layer_activations:
+        with st.expander("🔬 Live Deep Neural Network Diagnostics & Layer Activations", expanded=True):
+            col_diag1, col_diag2 = st.columns([1.2, 1.0])
+            with col_diag1:
+                diag_layers = ["Dense 1 (128 Units)", "Dense 2 (64 Units)", "Dense 3 (32 Units)"]
+                diag_means = [layer_activations.get("L1_mean", 0.0), layer_activations.get("L2_mean", 0.0), layer_activations.get("L3_mean", 0.0)]
+                
+                fig_diag = go.Figure()
+                fig_diag.add_trace(go.Bar(
+                    x=diag_layers,
+                    y=diag_means,
+                    name="Mean ReLU Activation",
+                    marker_color="#10B981",
+                    text=[f"{v:.3f}" for v in diag_means],
+                    textposition="auto"
+                ))
+                fig_diag.update_layout(
+                    paper_bgcolor='rgba(0,0,0,0)',
+                    plot_bgcolor='rgba(0,0,0,0)',
+                    font=dict(color='#F1F5F9', size=11),
+                    yaxis=dict(gridcolor='#1E293B', title="Mean Activation Value"),
+                    xaxis=dict(title=""),
+                    margin=dict(l=20, r=20, t=25, b=20),
+                    height=190
+                )
+                st.plotly_chart(fig_diag, use_container_width=True)
+            with col_diag2:
+                st.markdown(f"""
+                <div style="background: rgba(15, 23, 42, 0.7); padding: 0.9rem 1.1rem; border-radius: 12px; border: 1px solid rgba(255,255,255,0.08); font-size: 0.82rem;">
+                    <div>⚡ <b>Inference Latency:</b> <code style="color: #38BDF8;">{infer_duration_ms:.2f} ms</code></div>
+                    <div style="margin-top: 0.35rem;">🎯 <b>L1 Active Neurons:</b> <code>{layer_activations.get('L1_active_pct', 0):.1f}%</code> (Sparsity: {100 - layer_activations.get('L1_active_pct', 0):.1f}%)</div>
+                    <div style="margin-top: 0.35rem;">🎯 <b>L2 Active Neurons:</b> <code>{layer_activations.get('L2_active_pct', 0):.1f}%</code> (Sparsity: {100 - layer_activations.get('L2_active_pct', 0):.1f}%)</div>
+                    <div style="margin-top: 0.35rem;">🎯 <b>L3 Active Neurons:</b> <code>{layer_activations.get('L3_active_pct', 0):.1f}%</code> (Sparsity: {100 - layer_activations.get('L3_active_pct', 0):.1f}%)</div>
+                    <div style="margin-top: 0.35rem;">📐 <b>Input Dimension:</b> <code>33 Feature Columns</code></div>
+                </div>
+                """, unsafe_allow_html=True)
+
     col_hud, col_map = st.columns([1.05, 1.35])
     
     with col_hud:
+        jfk_badge_html = '<div style="background: rgba(245, 158, 11, 0.25); border: 1px solid #F59E0B; color: #FDE68A; padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 700; margin-bottom: 0.5rem; display: inline-block;">✈️ JFK AIRPORT FLAT-RATE REGIME ($70.00)</div>' if toggle_jfk_flat else ''
+        
+        tip_notice_html = f'<div style="font-size: 0.82rem; color: #FDE68A; margin-top: -0.1rem; margin-bottom: 0.4rem;">★ Includes 18% Gratuity (Base: ${pred_fare:.2f} + Tip: ${meter_display_fare - pred_fare:.2f})</div>' if toggle_tip else ''
+
         st.markdown(f"""
         <div class="taximeter-hud">
+            {jfk_badge_html}
             <div class="taximeter-title">Deep Feedforward Neural Prediction</div>
-            <div class="taximeter-fare">${pred_fare:.2f}</div>
+            <div class="taximeter-fare">${meter_display_fare:.2f}</div>
+            {tip_notice_html}
             <div class="taximeter-ci">
-                95% Empirical Prediction Interval: <b>${max(2.50, pred_fare - 1.60):.2f} – ${pred_fare + 1.60:.2f}</b>
+                95% Empirical Prediction Interval: <b>${max(2.50, meter_display_fare - 1.60):.2f} – ${meter_display_fare + 1.60:.2f}</b>
             </div>
             <div style="font-size: 0.8rem; color: #D1FAE5; margin-top: 0.8rem;">
                 Trained with Huber Loss (δ=1.0) & Batch Normalization on NYC TLC Telemetry
@@ -760,12 +900,12 @@ with tab_main:
         # Plotly Luxury Gauge Meter
         fig_gauge = go.Figure(go.Indicator(
             mode="gauge+number",
-            value=pred_fare,
+            value=meter_display_fare,
             domain={'x': [0, 1], 'y': [0, 1]},
             title={'text': "Dynamic Fare Meter ($ USD)", 'font': {'size': 14, 'color': '#94A3B8'}},
             number={'prefix': "$", 'font': {'size': 28, 'color': '#F8FAFC', 'family': 'JetBrains Mono'}},
             gauge={
-                'axis': {'range': [0, max(85, pred_fare * 1.3)], 'tickwidth': 1, 'tickcolor': "#475569"},
+                'axis': {'range': [0, max(85, meter_display_fare * 1.3)], 'tickwidth': 1, 'tickcolor': "#475569"},
                 'bar': {'color': "#10B981", 'thickness': 0.32},
                 'bgcolor': "rgba(15, 23, 42, 0.6)",
                 'borderwidth': 1,
@@ -778,7 +918,7 @@ with tab_main:
                 'threshold': {
                     'line': {'color': "#F59E0B", 'width': 3},
                     'thickness': 0.8,
-                    'value': pred_fare
+                    'value': meter_display_fare
                 }
             }
         ))
@@ -800,8 +940,8 @@ with tab_main:
             st.markdown(f"""
             - **Base Flag Drop Charge:** `$2.50` *(Initial charge upon entry)*
             - **Distance Incremental Meter:** `~${dist_charge:.2f}` *($0.50 per 1/5 mile)*
-            - **Congestion Rush-Hour:** `{'+$1.00' if is_rush else '$0.00'}`
-            - **Night Surcharge:** `{'+$0.50' if is_night else '$0.00'}`
+            - **Congestion Rush-Hour Surcharge:** `{'+$1.00' if is_rush else '$0.00'}`
+            - **Night Tariff Surcharge:** `{'+$0.50' if is_night else '$0.00'}`
             - **MTA State Tax & Improvement Fund:** `+$0.80` *($0.50 MTA + $0.30 Improvement)*
             - **Weather / Traffic Multiplier:** `{weather_mult:.2f}x`
             - **Regulatory Baseline Formula Estimate:** **`${est_rule_fare:.2f}`**
@@ -843,8 +983,8 @@ with tab_main:
                 latitude=mid_lat,
                 longitude=mid_lon,
                 zoom=11.0,
-                pitch=45,
-                bearing=12
+                pitch=45 if toggle_3d_arc else 0,
+                bearing=12 if toggle_3d_arc else 0
             )
             
             arc_layer = pdk.Layer(
@@ -869,8 +1009,10 @@ with tab_main:
                 auto_highlight=True
             )
             
+            deck_layers = [arc_layer, column_layer] if toggle_3d_arc else [column_layer]
+            
             deck = pdk.Deck(
-                layers=[arc_layer, column_layer],
+                layers=deck_layers,
                 initial_view_state=view_state,
                 tooltip={"text": "{name}\nLat: {lat}\nLon: {lon}"},
                 map_style=pdk.map_styles.CARTO_DARK
@@ -1285,7 +1427,7 @@ with tab_theory:
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
     )
     st.plotly_chart(fig_loss, use_container_width=True)
-    st.markdown(f"**Mathematical Advantage:** For residuals $|y - \hat{{y}}| \le {delta_val:.1f}$, Huber loss acts as smooth quadratic MSE (fast gradient convergence). For larger errors, it transitions to linear penalization, preventing explosive gradient spikes caused by meter anomalies and extreme outliers.")
+    st.markdown(rf"**Mathematical Advantage:** For residuals $|y - \hat{{y}}| \le {delta_val:.1f}$, Huber loss acts as smooth quadratic MSE (fast gradient convergence). For larger errors, it transitions to linear penalization, preventing explosive gradient spikes caused by meter anomalies and extreme outliers.")
 
 # -----------------------------------------------------------------------------
 # TAB 6: VISUALIZATIONS GALLERY
@@ -1307,15 +1449,33 @@ with tab_viz:
         ("10_feature_correlation_heatmap.png", "Feature Correlation Matrix Heatmap", "EDA")
     ]
     
-    cat_filter = st.radio("Filter by Category", ["All", "Convergence", "Evaluation", "Spatial", "EDA"], horizontal=True)
+    viz_col_filter, viz_col_tgl = st.columns([1.3, 1.0])
+    with viz_col_filter:
+        cat_filter = st.radio("Filter by Category", ["All", "Convergence", "Evaluation", "Spatial", "EDA"], horizontal=True)
+    with viz_col_tgl:
+        toggle_grid_view = st.toggle(
+            "🖼️ Grid Gallery Mode (Multi-Plot View)",
+            value=False,
+            key="tgl_viz_grid",
+            help="Switch between single focused inspection view and side-by-side gallery grid."
+        )
+    
     filtered_catalog = [v for v in viz_catalog if cat_filter == "All" or v[2] == cat_filter]
     
-    sel_chart = st.selectbox("Select Research Visualization Figure", [v[1] for v in filtered_catalog], index=0)
-    for fname, label, cat in filtered_catalog:
-        if label == sel_chart:
+    if toggle_grid_view:
+        grid_cols = st.columns(2)
+        for i, (fname, label, cat) in enumerate(filtered_catalog):
             img_p = os.path.join(VIZ_DIR, fname)
             if os.path.exists(img_p):
-                st.image(img_p, caption=f"Figure: {label} [{cat}]", use_container_width=True)
+                with grid_cols[i % 2]:
+                    st.image(img_p, caption=f"Figure: {label} [{cat}]", use_container_width=True)
+    else:
+        sel_chart = st.selectbox("Select Research Visualization Figure", [v[1] for v in filtered_catalog], index=0)
+        for fname, label, cat in filtered_catalog:
+            if label == sel_chart:
+                img_p = os.path.join(VIZ_DIR, fname)
+                if os.path.exists(img_p):
+                    st.image(img_p, caption=f"Figure: {label} [{cat}]", use_container_width=True)
 
 # -----------------------------------------------------------------------------
 # TAB 7: AUTOMATED TEST SUITE RUNNER
@@ -1324,11 +1484,19 @@ with tab_test:
     st.markdown("### 🧪 Automated Deployment Verification Test Suite")
     st.markdown("Executes `app/test_deployment.py` to validate checkpoint integrity, scaler transformations, and inference boundaries across 4 operational test scenarios:")
     
+    toggle_live_telemetry = st.toggle(
+        "⚡ Extended Diagnostics & Telemetry Assertion Logs",
+        value=True,
+        key="tgl_test_telemetry",
+        help="Display full terminal execution logs including benchmark bounds and geodetic distances."
+    )
+    
     if st.button("▶️ Execute Automated Deployment Test Suite", key="btn_run_tests_tab"):
         import subprocess
         test_script = os.path.join(BASE_DIR, "app", "test_deployment.py")
         res = subprocess.run([sys.executable, test_script], capture_output=True, text=True)
-        st.code(res.stdout, language="bash")
+        if toggle_live_telemetry:
+            st.code(res.stdout, language="bash")
         if res.returncode == 0:
             st.success("✅ All 4 Deployment Validation Tests Passed Successfully (100% Pass Rate)!")
         else:
