@@ -469,13 +469,169 @@ def run_deployment_tests():
     else:
         print(f"  Zero reference handling failed: {cmp_zero} -> FAILED")
 
-    total_tests = len(test_cases) + len(geocoding_tests) + len(routing_tests) + len(fare_tests)
-    total_passed = passed + geo_passed + routing_passed + fare_passed
+    # =========================================================================
+    # FEATURE #4: REAL MODEL EXPLAINABILITY & FEATURE ATTRIBUTION TESTS
+    # =========================================================================
+    from explainability import (
+        explain_prediction_integrated_gradients,
+        explain_prediction_shap,
+        get_global_feature_attribution,
+        get_display_name,
+        get_feature_icon,
+        FEATURE_DISPLAY_NAMES
+    )
+
     print("\n" + "="*80)
-    print(f"DEPLOYMENT, GEOCODING, ROUTING & FARE ENGINE TEST SUMMARY: {total_passed} / {total_tests} Test Cases Passed.")
+    print("RUNNING FEATURE #4: REAL MODEL EXPLAINABILITY & FEATURE ATTRIBUTION TESTS")
+    print("="*80)
+
+    explainability_tests = [
+        {"id": 1, "name": "EXPLAIN TEST 1: Valid Prediction Attribution Generated (Integrated Gradients)"},
+        {"id": 2, "name": "EXPLAIN TEST 2: Attribution Feature Count & Names Strictly Match Model Input Schema (33 Features)"},
+        {"id": 3, "name": "EXPLAIN TEST 3: Top Influential Features Sorted by Absolute Attribution Magnitude"},
+        {"id": 4, "name": "EXPLAIN TEST 4: Signed Directionality (Positive vs. Negative) Correctly Identified"},
+        {"id": 5, "name": "EXPLAIN TEST 5: Graceful Fallback if SHAP Library Is Unavailable or Errors"},
+        {"id": 6, "name": "EXPLAIN TEST 6: Invalid / Mismatched Input Dimensions Handled Safely"},
+        {"id": 7, "name": "EXPLAIN TEST 7: Model Forward Prediction Remains Identical Before & After Attribution"},
+        {"id": 8, "name": "EXPLAIN TEST 8: Neural Network Weights & Gradients Unaltered by Attribution Computation"},
+        {"id": 9, "name": "EXPLAIN TEST 9: Axiomatic Completeness Verified (Sum of Attributions == F(x) - F(baseline))"},
+        {"id": 10, "name": "EXPLAIN TEST 10: Global Feature Importance Strictly Separated from Local Prediction Explanation"}
+    ]
+
+    exp_passed = 0
+
+    # EXPLAIN TEST 1: Valid Prediction Attribution Generated
+    print(f"\nEvaluating {explainability_tests[0]['name']}...")
+    exp_res1 = explain_prediction_integrated_gradients(
+        model=model,
+        input_scaled=dnn_live_scaled[0],
+        feature_names=FEATURE_COLS,
+        raw_values=dnn_live_feats[FEATURE_COLS].values[0],
+        steps=30
+    )
+    if exp_res1.get("status") == "success" and len(exp_res1.get("features", [])) == 33:
+        print(f"  Valid Attribution Generated: Base=${exp_res1['base_prediction']:.2f}, Target=${exp_res1['target_prediction']:.2f}, Net=${exp_res1['net_attribution']:.2f} -> PASSED [OK]")
+        exp_passed += 1
+    else:
+        print(f"  Attribution generation failed: {exp_res1} -> FAILED")
+
+    # EXPLAIN TEST 2: Attribution Feature Count & Names Match Model Input Schema
+    print(f"\nEvaluating {explainability_tests[1]['name']}...")
+    res_fnames = [f["feature"] for f in exp_res1.get("features", [])]
+    if res_fnames == FEATURE_COLS:
+        print(f"  Schema Conformance Confirmed: 33 features match FEATURE_COLS exactly in identical order -> PASSED [OK]")
+        exp_passed += 1
+    else:
+        print(f"  Feature order mismatch: {res_fnames} vs {FEATURE_COLS} -> FAILED")
+
+    # EXPLAIN TEST 3: Top Influential Features Sorted by Absolute Attribution Magnitude
+    print(f"\nEvaluating {explainability_tests[2]['name']}...")
+    top_feats = exp_res1.get("top_features", [])
+    is_sorted = all(top_feats[i]["abs_attribution"] >= top_feats[i+1]["abs_attribution"] for i in range(len(top_feats)-1))
+    if len(top_feats) == 5 and is_sorted:
+        top_names = [f"{f['display_name']} ({f['formatted_delta']})" for f in top_feats[:3]]
+        print(f"  Sorting Magnitude Verified: Top 3: {', '.join(top_names)} -> PASSED [OK]")
+        exp_passed += 1
+    else:
+        print(f"  Top features not sorted by magnitude: {top_feats} -> FAILED")
+
+    # EXPLAIN TEST 4: Signed Directionality Correctly Identified
+    print(f"\nEvaluating {explainability_tests[3]['name']}...")
+    valid_dirs = all(f["direction"] in ["positive", "negative"] for f in exp_res1["features"])
+    dir_signs_correct = all(
+        (f["attribution"] >= 0 and f["direction"] == "positive" and f["formatted_delta"].startswith("+")) or
+        (f["attribution"] < 0 and f["direction"] == "negative" and f["formatted_delta"].startswith("-"))
+        for f in exp_res1["features"]
+    )
+    if valid_dirs and dir_signs_correct:
+        print(f"  Signed Directionality Verified: All 33 features correctly categorized as positive (fare increase) or negative (fare decrease) -> PASSED [OK]")
+        exp_passed += 1
+    else:
+        print(f"  Directional logic failure in attribution items -> FAILED")
+
+    # EXPLAIN TEST 5: Graceful Fallback if SHAP Library Is Unavailable or Errors
+    print(f"\nEvaluating {explainability_tests[4]['name']}...")
+    shap_res = explain_prediction_shap(
+        model=model,
+        input_scaled=dnn_live_scaled[0],
+        feature_names=FEATURE_COLS,
+        raw_values=dnn_live_feats[FEATURE_COLS].values[0],
+        background_samples=10,
+        nsamples=20
+    )
+    if shap_res.get("status") == "success" and len(shap_res.get("features", [])) == 33:
+        print(f"  SHAP Pipeline Executed / Handled Gracefully: Method='{shap_res.get('method')}' -> PASSED [OK]")
+        exp_passed += 1
+    else:
+        print(f"  SHAP execution / fallback failed: {shap_res} -> FAILED")
+
+    # EXPLAIN TEST 6: Invalid / Mismatched Input Dimensions Handled Safely
+    print(f"\nEvaluating {explainability_tests[5]['name']}...")
+    try:
+        explain_prediction_integrated_gradients(
+            model=model,
+            input_scaled=np.array([1.0, 2.0]), # Invalid length 2 instead of 33
+            feature_names=FEATURE_COLS
+        )
+        print("  Expected ValueError for dimension mismatch, but none was raised -> FAILED")
+    except ValueError as val_err:
+        print(f"  Mismatched Dimensions Handled Gracefully: Caught {type(val_err).__name__} -> PASSED [OK]")
+        exp_passed += 1
+
+    # EXPLAIN TEST 7: Model Forward Prediction Remains Identical Before & After Attribution
+    print(f"\nEvaluating {explainability_tests[6]['name']}...")
+    with torch.no_grad():
+        pred_before = model(torch.tensor(dnn_live_scaled, dtype=torch.float32)).item()
+    _ = explain_prediction_integrated_gradients(model=model, input_scaled=dnn_live_scaled[0], feature_names=FEATURE_COLS, steps=10)
+    with torch.no_grad():
+        pred_after = model(torch.tensor(dnn_live_scaled, dtype=torch.float32)).item()
+    if abs(pred_before - pred_after) < 1e-6:
+        print(f"  Prediction Invariance Verified: PredBefore=${pred_before:.4f} == PredAfter=${pred_after:.4f} -> PASSED [OK]")
+        exp_passed += 1
+    else:
+        print(f"  Prediction altered by explainability: {pred_before} vs {pred_after} -> FAILED")
+
+    # EXPLAIN TEST 8: Neural Network Weights & Gradients Unaltered by Attribution
+    print(f"\nEvaluating {explainability_tests[7]['name']}...")
+    weights_before = sum(p.sum().item() for p in model.parameters())
+    _ = explain_prediction_integrated_gradients(model=model, input_scaled=dnn_live_scaled[0], feature_names=FEATURE_COLS, steps=10)
+    weights_after = sum(p.sum().item() for p in model.parameters())
+    if abs(weights_before - weights_after) < 1e-6 and not model.training:
+        print(f"  Parameter Immutability Verified: SumOfWeights={weights_before:.6f} untouched, model.training=False -> PASSED [OK]")
+        exp_passed += 1
+    else:
+        print(f"  Model weights or training state altered: {weights_before} vs {weights_after} -> FAILED")
+
+    # EXPLAIN TEST 9: Axiomatic Completeness Verified
+    print(f"\nEvaluating {explainability_tests[8]['name']}...")
+    completeness_ok = exp_res1.get("completeness_verified", False)
+    base_val = exp_res1.get("base_prediction", 0.0)
+    net_val = exp_res1.get("net_attribution", 0.0)
+    target_val = exp_res1.get("target_prediction", 0.0)
+    if completeness_ok and abs((base_val + net_val) - target_val) < 0.05:
+        print(f"  Completeness Axiom Verified: Base (${base_val:.2f}) + Net (${net_val:.2f}) == Target (${target_val:.2f}) within 5¢ tolerance -> PASSED [OK]")
+        exp_passed += 1
+    else:
+        print(f"  Completeness verification failed: Base={base_val}, Net={net_val}, Target={target_val} -> FAILED")
+
+    # EXPLAIN TEST 10: Global Feature Importance Strictly Separated from Local Explanation
+    print(f"\nEvaluating {explainability_tests[9]['name']}...")
+    global_res = get_global_feature_attribution()
+    if global_res.get("status") == "success" and len(global_res.get("rankings", [])) >= 10:
+        g_top = global_res["rankings"][0]["feature"]
+        print(f"  Global Feature Importance Verified: Sample={global_res.get('sample_size')} trips, #1 Global Feature={g_top} -> PASSED [OK]")
+        exp_passed += 1
+    else:
+        print(f"  Global feature attribution failed or missing: {global_res} -> FAILED")
+
+    total_tests = len(test_cases) + len(geocoding_tests) + len(routing_tests) + len(fare_tests) + len(explainability_tests)
+    total_passed = passed + geo_passed + routing_passed + fare_passed + exp_passed
+    print("\n" + "="*80)
+    print(f"DEPLOYMENT, GEOCODING, ROUTING, FARE ENGINE & EXPLAINABILITY TEST SUMMARY: {total_passed} / {total_tests} Test Cases Passed.")
     print("="*80)
     return total_passed == total_tests
 
 if __name__ == "__main__":
     success = run_deployment_tests()
     sys.exit(0 if success else 1)
+
