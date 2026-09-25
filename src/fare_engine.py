@@ -334,10 +334,13 @@ def compare_fares(ml_prediction: float, reference_estimate: float) -> Dict[str, 
 
     if diff > 0:
         direction = "higher"
+        explanation = f"ML model estimates ${abs_diff:.2f} ({pct_diff:.1f}%) higher than the rule-based standard."
     elif diff < 0:
         direction = "lower"
+        explanation = f"ML model estimates ${abs_diff:.2f} ({pct_diff:.1f}%) lower than the rule-based standard."
     else:
         direction = "identical"
+        explanation = "ML model prediction exactly matches the rule-based standard."
 
     return {
         "ml_prediction": ml_prediction,
@@ -345,7 +348,8 @@ def compare_fares(ml_prediction: float, reference_estimate: float) -> Dict[str, 
         "difference": diff,
         "absolute_difference": abs_diff,
         "percentage_difference": pct_diff,
-        "direction": direction
+        "direction": direction,
+        "explanation": explanation
     }
 
 

@@ -2433,7 +2433,7 @@ ${fare_comp['absolute_difference']:.2f} <span style="font-size: 0.8rem; font-wei
 </span>
 </div>
 <div style="font-size: 0.74rem; color: {'#94A3B8' if is_night_theme else '#64748B'}; margin-top: 0.45rem;">
-{fare_comp['explanation']}
+{fare_comp.get('explanation', '')}
 </div>
 </div>
 """, unsafe_allow_html=True)
