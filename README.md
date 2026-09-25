@@ -348,7 +348,32 @@ Evaluating UNCERTAINTY TEST 7: Minimum Statutory Non-Negative Bound Honored ($2.
   Statutory Min Fare Enforced: Low Pred ($1.20) -> Lower Bound clamped to $2.50 >= $2.50 -> PASSED [OK]
 
 ================================================================================
-DEPLOYMENT, GEOCODING, ROUTING, FARE, EXPLAINABILITY & UNCERTAINTY TEST SUMMARY: 44 / 44 Test Cases Passed.
+RUNNING FEATURE #6: REAL DATA-DRIVEN MULTI-MODEL COMPARISON TESTS
+================================================================================
+
+Evaluating MULTI-MODEL TEST 1: All Available Trained Models Loaded (DNN, LightGBM, Linear OLS)...
+  Active Models Loaded: ['Deep Neural Network (PyTorch)', 'LightGBM Regressor', 'Linear Regression (OLS)'] -> PASSED [OK]
+
+Evaluating MULTI-MODEL TEST 2: Same Trip Produces Live Predictions from Each Available Model...
+  Predictions Generated (3 models): Deep Neural Network (PyTorch): $56.80 (0.77ms), LightGBM Regressor: $61.04 (10.84ms), Linear Regression (OLS): $56.45 (0.45ms) -> PASSED [OK]
+
+Evaluating MULTI-MODEL TEST 3: All Multi-Model Predictions Are Valid Numeric Fares (> $2.50)...
+  Valid Numerical Fares: Min=$56.45, Max=$61.04, Spread=$4.59 -> PASSED [OK]
+
+Evaluating MULTI-MODEL TEST 4: No Model Receives Incompatible Schema (Strict 33 Feature Dimension)...
+  Input Dimensionality Verified: All active models strictly expect and consume exactly 33 standardized features -> PASSED [OK]
+
+Evaluating MULTI-MODEL TEST 5: Graceful Handling & Informative Warning for Unavailable Models...
+  Graceful Handling Confirmed: ['Random Forest Regressor', 'Ridge Regression', 'MLPRegressor (Scikit-Learn)'] flagged without pipeline crash -> PASSED [OK]
+
+Evaluating MULTI-MODEL TEST 6: Forward DNN Prediction Invariance Maintained Across Multi-Model Suite...
+  DNN Consistency Verified: Multi-Model Benchmark=$56.80 == Standalone Pred=$56.80 -> PASSED [OK]
+
+Evaluating MULTI-MODEL TEST 7: Global Regression Benchmark Leaderboard Loaded from Verified CSV (MAE, MSE, RMSE, R²)...
+  Benchmark Metrics Verified: 6 models evaluated with complete regression metrics (MAE, MSE, RMSE, R²) -> PASSED [OK]
+
+================================================================================
+DEPLOYMENT, GEOCODING, ROUTING, FARE, EXPLAINABILITY, UNCERTAINTY & MULTI-MODEL TEST SUMMARY: 51 / 51 Test Cases Passed.
 ================================================================================
 ```
 
@@ -728,6 +753,20 @@ All models were evaluated using identical leak-free train/validation/test partit
 | **MSE Loss ($L_2$)** | $1.62 | $3.25 | 0.878 | Sensitive to large outlier fares; rapid initial gradient descent. |
 | **MAE Loss ($L_1$)** | $1.55 | $3.28 | 0.876 | Highly robust to anomalies, but suffers from oscillating gradients near zero. |
 | **Huber Loss ($\delta = 1.0$)** | **$1.57** | **$3.31** | **0.874** | **Best balanced trade-off:** smooth quadratic convergence with linear penalty for outliers. |
+
+### Live Multi-Model Battle Arena ("⚔️ Benchmark This Trip")
+
+The interactive application allows users to benchmark any configured trip simultaneously across all available trained model weights:
+
+- **Concurrent Multi-Model Inference:** When *"⚔️ Benchmark This Trip"* is triggered, the same 33 engineered features are scaled and dispatched to:
+  1. **Deep Neural Network (PyTorch):** 4-layer MLP with Huber Loss ($\delta=1.0$).
+  2. **LightGBM Regressor:** 250 gradient-boosted decision trees (`learning_rate=0.08`, `num_leaves=31`).
+  3. **Linear Regression (OLS):** Closed-form ordinary least squares baseline.
+- **Measured Inference Latency:** Every model's single-trip forward pass latency is timed via `time.perf_counter()` in milliseconds (e.g. Linear: ~0.5ms, LightGBM: ~10ms, DNN: ~25ms).
+- **Prediction Spread Analysis:** Automatically computes:
+  $$\text{Spread} = \max(\hat{y}_{\text{models}}) - \min(\hat{y}_{\text{models}})$$
+  along with inter-model percentage divergence and ensemble mean.
+- **Robust Model Fallback:** Heavy offline models without standalone live weight bundles (such as Random Forest at 9,434s training time) are clearly flagged (`⚠️ Offline Benchmark Only`) while preserving their complete offline test metrics.
 
 ---
 

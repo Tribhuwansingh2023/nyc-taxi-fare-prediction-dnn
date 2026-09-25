@@ -712,15 +712,106 @@ def run_deployment_tests():
     else:
         print(f"  Clamping failed for low prediction: {u_low} -> FAILED")
 
-    total_tests = len(test_cases) + len(geocoding_tests) + len(routing_tests) + len(fare_tests) + len(explainability_tests) + len(uncertainty_tests)
-    total_passed = passed + geo_passed + routing_passed + fare_passed + exp_passed + unc_passed
+    # =========================================================================
+    # FEATURE #6: REAL DATA-DRIVEN MULTI-MODEL COMPARISON TESTS
+    # =========================================================================
+    from model_comparison import (
+        get_available_models_bundle,
+        load_benchmark_metrics,
+        benchmark_single_trip
+    )
+
     print("\n" + "="*80)
-    print(f"DEPLOYMENT, GEOCODING, ROUTING, FARE, EXPLAINABILITY & UNCERTAINTY TEST SUMMARY: {total_passed} / {total_tests} Test Cases Passed.")
+    print("RUNNING FEATURE #6: REAL DATA-DRIVEN MULTI-MODEL COMPARISON TESTS")
+    print("="*80)
+
+    model_comp_tests = [
+        {"id": 1, "name": "MULTI-MODEL TEST 1: All Available Trained Models Loaded (DNN, LightGBM, Linear OLS)"},
+        {"id": 2, "name": "MULTI-MODEL TEST 2: Same Trip Produces Live Predictions from Each Available Model"},
+        {"id": 3, "name": "MULTI-MODEL TEST 3: All Multi-Model Predictions Are Valid Numeric Fares (> $2.50)"},
+        {"id": 4, "name": "MULTI-MODEL TEST 4: No Model Receives Incompatible Schema (Strict 33 Feature Dimension)"},
+        {"id": 5, "name": "MULTI-MODEL TEST 5: Graceful Handling & Informative Warning for Unavailable Models"},
+        {"id": 6, "name": "MULTI-MODEL TEST 6: Forward DNN Prediction Invariance Maintained Across Multi-Model Suite"},
+        {"id": 7, "name": "MULTI-MODEL TEST 7: Global Regression Benchmark Leaderboard Loaded from Verified CSV (MAE, MSE, RMSE, R²)"}
+    ]
+
+    mcomp_passed = 0
+
+    # MULTI-MODEL TEST 1: All Available Trained Models Loaded
+    print(f"\nEvaluating {model_comp_tests[0]['name']}...")
+    avail_models, unavail_models = get_available_models_bundle()
+    if "Deep Neural Network (PyTorch)" in avail_models and "LightGBM Regressor" in avail_models and "Linear Regression (OLS)" in avail_models:
+        print(f"  Active Models Loaded: {list(avail_models.keys())} -> PASSED [OK]")
+        mcomp_passed += 1
+    else:
+        print(f"  Expected models missing from bundle: {avail_models.keys()} -> FAILED")
+
+    # MULTI-MODEL TEST 2: Same Trip Produces Live Predictions from Each Available Model
+    print(f"\nEvaluating {model_comp_tests[1]['name']}...")
+    b_trip = benchmark_single_trip(dnn_live_scaled)
+    if b_trip.get("status") == "success" and len(b_trip.get("predictions", [])) >= 3:
+        pred_summary = [f"{p['display_name']}: ${p['predicted_fare']:.2f} ({p['latency_ms']}ms)" for p in b_trip['predictions']]
+        print(f"  Predictions Generated ({len(b_trip['predictions'])} models): {', '.join(pred_summary)} -> PASSED [OK]")
+        mcomp_passed += 1
+    else:
+        print(f"  Single trip benchmark failed: {b_trip} -> FAILED")
+
+    # MULTI-MODEL TEST 3: All Multi-Model Predictions Are Valid Numeric Fares (> $2.50)
+    print(f"\nEvaluating {model_comp_tests[2]['name']}...")
+    all_numeric = all(isinstance(p["predicted_fare"], (int, float)) and p["predicted_fare"] >= 2.50 for p in b_trip["predictions"])
+    if all_numeric and b_trip["spread"] >= 0:
+        print(f"  Valid Numerical Fares: Min=${b_trip['min_fare']:.2f}, Max=${b_trip['max_fare']:.2f}, Spread=${b_trip['spread']:.2f} -> PASSED [OK]")
+        mcomp_passed += 1
+    else:
+        print(f"  Non-numeric or below minimum fares found: {b_trip['predictions']} -> FAILED")
+
+    # MULTI-MODEL TEST 4: Schema Compatibility (33 Features)
+    print(f"\nEvaluating {model_comp_tests[3]['name']}...")
+    schema_ok = all(m.get("features_expected") == 33 for m in avail_models.values())
+    if schema_ok and dnn_live_scaled.shape[1] == 33:
+        print(f"  Input Dimensionality Verified: All active models strictly expect and consume exactly 33 standardized features -> PASSED [OK]")
+        mcomp_passed += 1
+    else:
+        print(f"  Schema mismatch detected across models: {avail_models} -> FAILED")
+
+    # MULTI-MODEL TEST 5: Graceful Handling for Unavailable Models
+    print(f"\nEvaluating {model_comp_tests[4]['name']}...")
+    if "unavailable_models" in b_trip and len(b_trip["unavailable_models"]) >= 1:
+        print(f"  Graceful Handling Confirmed: {b_trip['unavailable_models']} flagged without pipeline crash -> PASSED [OK]")
+        mcomp_passed += 1
+    else:
+        print(f"  Unavailable models list missing from benchmark: {b_trip} -> FAILED")
+
+    # MULTI-MODEL TEST 6: Forward DNN Prediction Invariance
+    print(f"\nEvaluating {model_comp_tests[5]['name']}...")
+    dnn_bench_pred = next((p["predicted_fare"] for p in b_trip["predictions"] if "Deep Neural Network" in p["display_name"]), None)
+    if dnn_bench_pred is not None and abs(dnn_bench_pred - dnn_live_fare) < 1e-2:
+        print(f"  DNN Consistency Verified: Multi-Model Benchmark=${dnn_bench_pred:.2f} == Standalone Pred=${dnn_live_fare:.2f} -> PASSED [OK]")
+        mcomp_passed += 1
+    else:
+        print(f"  DNN prediction divergence: {dnn_bench_pred} vs {dnn_live_fare} -> FAILED")
+
+    # MULTI-MODEL TEST 7: Global Regression Benchmark Leaderboard
+    print(f"\nEvaluating {model_comp_tests[6]['name']}...")
+    df_metrics = load_benchmark_metrics()
+    req_cols = ["Model", "Test_MAE", "Test_MSE", "Test_RMSE", "Test_R2"]
+    has_cols = all(c in df_metrics.columns for c in req_cols)
+    if not df_metrics.empty and has_cols and len(df_metrics) >= 4:
+        print(f"  Benchmark Metrics Verified: {len(df_metrics)} models evaluated with complete regression metrics (MAE, MSE, RMSE, R²) -> PASSED [OK]")
+        mcomp_passed += 1
+    else:
+        print(f"  Benchmark metrics table incomplete or missing columns: {df_metrics} -> FAILED")
+
+    total_tests = len(test_cases) + len(geocoding_tests) + len(routing_tests) + len(fare_tests) + len(explainability_tests) + len(uncertainty_tests) + len(model_comp_tests)
+    total_passed = passed + geo_passed + routing_passed + fare_passed + exp_passed + unc_passed + mcomp_passed
+    print("\n" + "="*80)
+    print(f"DEPLOYMENT, GEOCODING, ROUTING, FARE, EXPLAINABILITY, UNCERTAINTY & MULTI-MODEL TEST SUMMARY: {total_passed} / {total_tests} Test Cases Passed.")
     print("="*80)
     return total_passed == total_tests
 
 if __name__ == "__main__":
     success = run_deployment_tests()
     sys.exit(0 if success else 1)
+
 
 

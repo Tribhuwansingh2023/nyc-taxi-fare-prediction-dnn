@@ -75,6 +75,13 @@ from trip_history import (
     run_database_tests as th_run_db_tests,
 )
 from uncertainty import compute_prediction_interval, create_uncertainty_badge_html
+from model_comparison import (
+    get_available_models_bundle,
+    load_benchmark_metrics,
+    benchmark_single_trip,
+    create_trip_benchmark_bar_chart,
+    create_benchmark_metrics_chart
+)
 
 logger = logging.getLogger(__name__)
 
@@ -2822,6 +2829,107 @@ with tab_battle:
         st.plotly_chart(fig_radar, use_container_width=True)
         
     st.dataframe(battle_df, use_container_width=True, hide_index=True)
+
+    # =========================================================================
+    # REAL DATA-DRIVEN MULTI-MODEL BENCHMARKING (FEATURE #6)
+    # =========================================================================
+    st.markdown("---")
+    st.markdown("#### ⚔️ Interactive Real-Time Multi-Model Trip Benchmark")
+    st.caption("Execute concurrent forward inference across all active models for this exact trip telemetry, measuring real prediction latency and calculating inter-model prediction spread:")
+
+    col_btn, col_blank = st.columns([1.5, 2.5])
+    with col_btn:
+        run_trip_bench = st.button("⚔️ Benchmark This Trip", key="btn_run_trip_benchmark", use_container_width=True)
+
+    # Run benchmark automatically or on button click
+    trip_bench = benchmark_single_trip(X_scaled, weather_mult=weather_mult, is_jfk_flat=toggle_jfk_flat)
+
+    if trip_bench.get("status") == "success":
+        # Prediction Spread Metric Cards
+        sp_c1, sp_c2, sp_c3, sp_c4 = st.columns(4)
+        with sp_c1:
+            st.metric("Minimum Prediction", f"${trip_bench['min_fare']:.2f}", help="Lowest predicted fare among active models")
+        with sp_c2:
+            st.metric("Maximum Prediction", f"${trip_bench['max_fare']:.2f}", help="Highest predicted fare among active models")
+        with sp_c3:
+            st.metric("Prediction Spread", f"${trip_bench['spread']:.2f}", delta=f"{trip_bench['spread'] / max(0.01, trip_bench['mean_fare']) * 100:.1f}% divergence", delta_color="off", help="Difference between max and min model predictions")
+        with sp_c4:
+            st.metric("Model Ensemble Mean", f"${trip_bench['mean_fare']:.2f}", help="Arithmetic average of all active model predictions")
+
+        # Live Trip Comparison Table with Measured Latency
+        bench_table_data = []
+        for p in trip_bench["predictions"]:
+            if p.get("status") == "success":
+                bench_table_data.append({
+                    "Model": p["display_name"],
+                    "Predicted Fare": f"${p['predicted_fare']:.2f}",
+                    "Inference Latency": f"{p['latency_ms']:.2f} ms",
+                    "Model Family": p["type"],
+                    "Framework": p["framework"],
+                    "Status": "🟢 Live Active"
+                })
+        
+        for un_m in trip_bench.get("unavailable_models", []):
+            bench_table_data.append({
+                "Model": un_m,
+                "Predicted Fare": "—",
+                "Inference Latency": "—",
+                "Model Family": "Offline Evaluated",
+                "Framework": "Scikit-Learn",
+                "Status": "⚠️ Offline Benchmark Only"
+            })
+
+        st.markdown("##### 📋 Trip Prediction & Latency Comparison")
+        st.dataframe(pd.DataFrame(bench_table_data), use_container_width=True, hide_index=True)
+
+        if trip_bench.get("unavailable_models"):
+            st.info(f"ℹ️ **Offline Benchmark Notice:** {', '.join(trip_bench['unavailable_models'])} models were evaluated on the complete offline benchmark dataset. Live forward inference is currently served by the lightweight production models.")
+
+    # Global Empirical Benchmark Leaderboard
+    st.markdown("---")
+    st.markdown("#### 🏆 Global Empirical Model Benchmark Leaderboard")
+    st.caption("Rigorous leak-free evaluation on the unseen holdout test split (15% partition, n=14,607), comparing standard regression metrics:")
+
+    df_bench_metrics = load_benchmark_metrics()
+    if not df_bench_metrics.empty:
+        col_m_tbl, col_m_plot = st.columns([1.2, 1.0])
+        with col_m_tbl:
+            # Format dataframe for presentation
+            disp_metrics = df_bench_metrics.copy()
+            rename_map = {
+                "Model": "Model Architecture",
+                "Test_MAE": "MAE ($)",
+                "Test_MSE": "MSE",
+                "Test_RMSE": "RMSE ($)",
+                "Test_R2": "R² Score",
+                "Train_Time_Sec": "Train Time (s)"
+            }
+            cols_to_show = [c for c in ["Model", "Test_MAE", "Test_MSE", "Test_RMSE", "Test_R2", "Train_Time_Sec"] if c in disp_metrics.columns]
+            disp_metrics = disp_metrics[cols_to_show].rename(columns=rename_map)
+            st.dataframe(disp_metrics, use_container_width=True, hide_index=True)
+            
+        with col_m_plot:
+            fig_metrics = create_benchmark_metrics_chart(df_bench_metrics, is_night_theme=is_night_theme)
+            st.plotly_chart(fig_metrics, use_container_width=True)
+
+    # Academic Methodology Expander
+    with st.expander("📚 Academic Methodology: How were these regression benchmarks calculated?", expanded=False):
+        st.markdown("""
+        **1. Leak-Free Dataset Partitioning:**
+        - **Training Set (70%):** Model weights and StandardScaler parameters are learned exclusively on this split.
+        - **Validation Set (15%):** Hyperparameter tuning, early stopping (`patience=3`), and prediction intervals.
+        - **Test Set (15%):** Final unbiased evaluation reported in the leaderboard above.
+        
+        **2. Standard Regression Metrics Formulations:**
+        - **Mean Absolute Error (MAE):** $\\text{MAE} = \\frac{1}{n} \\sum_{i=1}^n |y_i - \\hat{y}_i|$ — Measures average dollar error per trip.
+        - **Mean Squared Error (MSE):** $\\text{MSE} = \\frac{1}{n} \\sum_{i=1}^n (y_i - \\hat{y}_i)^2$ — Heavily penalizes large outlying errors.
+        - **Root Mean Squared Error (RMSE):** $\\text{RMSE} = \\sqrt{\\text{MSE}}$ — Expressed in original fare dollar units.
+        - **Coefficient of Determination ($R^2$):** $R^2 = 1 - \\frac{\\sum (y_i - \\hat{y}_i)^2}{\\sum (y_i - \\bar{y})^2}$ — Proportion of variance explained by the model.
+        
+        **3. Live Latency Measurement:**
+        - Measured via high-precision `time.perf_counter()` over the model's `.predict()` / forward tensor operation in milliseconds.
+        """)
+
 
 # -----------------------------------------------------------------------------
 # TAB 3: WHAT-IF SENSITIVITY SIMULATOR
