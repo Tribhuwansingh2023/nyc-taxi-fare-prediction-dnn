@@ -1377,32 +1377,28 @@ scaler, dnn_model, baselines = load_models_and_scaler()
 # HERO HEADER BANNER
 # =============================================================================
 theme_mode_badge = "🌙 Cyber Night Mode" if is_night_theme else "☀️ Sunlit Day Mode"
-st.markdown(f"""
-<div class="hero-banner">
-    <h1>🚖 NYC Taxi Fare Intelligence Studio</h1>
-    <p>High-Resolution Geodesic & Temporal Deep Feedforward Neural Network (PyTorch MLP) with Huber Robust Loss Formulation</p>
-    <div class="badge-bar">
-        <span class="hero-badge highlight">🏛️ Siksha 'O' Anusandhan (ITER)</span>
-        <span class="hero-badge">📚 CSE 4192: Machine Learning Projects</span>
-        <span class="hero-badge green">⚡ PyTorch Deep Neural Network</span>
-        <span class="hero-badge">🎯 Huber Loss (δ=1.0)</span>
-        <span class="hero-badge">🗺️ Geodesic & Cyclical Features</span>
-        <span class="hero-badge highlight">🌓 {theme_mode_badge}</span>
-    </div>
+st.markdown(f"""<div class="hero-banner">
+<h1>🚖 NYC Taxi Fare Intelligence Studio</h1>
+<p>High-Resolution Geodesic & Temporal Deep Feedforward Neural Network (PyTorch MLP) with Huber Robust Loss Formulation</p>
+<div class="badge-bar">
+<span class="hero-badge highlight">🏛️ Siksha 'O' Anusandhan (ITER)</span>
+<span class="hero-badge">📚 CSE 4192: Machine Learning Projects</span>
+<span class="hero-badge green">⚡ PyTorch Deep Neural Network</span>
+<span class="hero-badge">🎯 Huber Loss (δ=1.0)</span>
+<span class="hero-badge">🗺️ Geodesic & Cyclical Features</span>
+<span class="hero-badge highlight">🌓 {theme_mode_badge}</span>
 </div>
-""", unsafe_allow_html=True)
+</div>""", unsafe_allow_html=True)
 
 # Live Telemetry Ribbon
 live_weather = get_live_nyc_weather()
 live_nyc_now = get_live_nyc_time()
 w_ribbon_str = f"{live_weather['icon']} Weather: <b>{live_weather['temp_c']}°C ({live_weather['desc']})</b>" if live_weather.get("available") else f"⚠️ Weather: <b>{live_weather.get('desc', 'Unavailable')}</b>"
 
-st.markdown(f"""
-<div class="telemetry-strip">
-    <div><span class="pulse-dot"></span><b>REAL-TIME INFERENCE ENGINE</b> &nbsp;|&nbsp; 🕒 NYC: <b>{live_nyc_now.strftime('%I:%M %p EDT, %A')}</b> &nbsp;|&nbsp; {w_ribbon_str}</div>
-    <div>Hardware: <b>CPU / AVX2 Inlined</b> &nbsp;|&nbsp; Latency: <b>~1.4 ms</b> &nbsp;|&nbsp; Display: <b>{'🌙 Night' if is_night_theme else '☀️ Day'}</b> &nbsp;|&nbsp; Rate: <b>NYC TLC 2025</b></div>
-</div>
-""", unsafe_allow_html=True)
+st.markdown(f"""<div class="telemetry-strip">
+<div><span class="pulse-dot"></span><b>REAL-TIME INFERENCE ENGINE</b> &nbsp;|&nbsp; 🕒 NYC: <b>{live_nyc_now.strftime('%I:%M %p EDT, %A')}</b> &nbsp;|&nbsp; {w_ribbon_str}</div>
+<div>Hardware: <b>CPU / AVX2 Inlined</b> &nbsp;|&nbsp; Latency: <b>~1.4 ms</b> &nbsp;|&nbsp; Display: <b>{'🌙 Night' if is_night_theme else '☀️ Day'}</b> &nbsp;|&nbsp; Rate: <b>NYC TLC 2025</b></div>
+</div>""", unsafe_allow_html=True)
 
 # =============================================================================
 # TOP QUICK SCENARIO SELECTOR CARDS & REAL-TIME SYNC
@@ -2021,54 +2017,54 @@ disp_d_addr = (
 
 st.markdown(f"""
 <div style="background: {card_bg}; border: 1px solid {card_border}; border-radius: 16px; padding: 1.1rem 1.4rem; margin-bottom: 1rem; box-shadow: 0 4px 18px rgba(0,0,0,0.05); display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem;">
-    <div style="flex: 1 1 260px; min-width: 220px;">
-        <div style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: {'#10B981' if is_night_theme else '#16A34A'}; margin-bottom: 0.25rem;">
-            🟢 📍 Pickup Location
-        </div>
-        <div style="font-size: 0.98rem; font-weight: 700; color: {card_text}; line-height: 1.35; margin-bottom: 0.25rem;">
-            {disp_p_addr}
-        </div>
-        <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: {'#94A3B8' if is_night_theme else '#64748B'};">
-            {p_lat:.4f}, {p_lon:.4f}
-        </div>
-    </div>
-    <div style="text-align: center; padding: 0 0.5rem; flex: 0 0 auto;">
-        <div style="font-size: 1.3rem; color: {'#38BDF8' if is_night_theme else '#2563EB'};">↓</div>
-        <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; font-weight: 700; color: {'#38BDF8' if is_night_theme else '#2563EB'}; white-space: nowrap;">
-            {distance_km:.1f} km
-        </div>
-        <div style="font-size: 0.7rem; color: {'#94A3B8' if is_night_theme else '#64748B'};">air distance</div>
-    </div>
-    <div style="flex: 1 1 260px; min-width: 220px;">
-        <div style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: {'#F43F5E' if is_night_theme else '#DC2626'}; margin-bottom: 0.25rem;">
-            🔴 🏁 Drop-off Location
-        </div>
-        <div style="font-size: 0.98rem; font-weight: 700; color: {card_text}; line-height: 1.35; margin-bottom: 0.25rem;">
-            {disp_d_addr}
-        </div>
-        <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: {'#94A3B8' if is_night_theme else '#64748B'};">
-            {d_lat:.4f}, {d_lon:.4f}
-        </div>
-    </div>
-    <div style="border-left: 1px solid {card_border}; padding-left: 1.2rem; flex: 0 1 auto; min-width: 170px; text-align: right;">
-        <div style="font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: {'#94A3B8' if is_night_theme else '#64748B'};">
-            🤖 ML Prediction
-        </div>
-        <div style="font-family: 'JetBrains Mono', monospace; font-size: 1.7rem; font-weight: 800; color: {'#10B981' if is_night_theme else '#16A34A'}; line-height: 1.1; margin-top: 0.15rem;">
-            ${pred_fare:.2f}
-        </div>
-        <div style="font-size: 0.68rem; color: {'#94A3B8' if is_night_theme else '#64748B'}; margin-bottom: 0.15rem;">
-            PyTorch DNN (Huber)
-        </div>
-        <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; color: {'#38BDF8' if is_night_theme else '#0284C7'}; margin-bottom: 0.35rem; font-weight: 600;">
-            📊 95% Interval: {dnn_interval.get('formatted', '$' + f'{pred_fare:.2f}')}
-        </div>
-        <div style="border-top: 1px solid {card_border}; padding-top: 0.3rem; display: flex; justify-content: flex-end; align-items: baseline; gap: 0.4rem;">
-            <span style="font-size: 0.7rem; color: {'#94A3B8' if is_night_theme else '#64748B'}; font-weight: 600;">📜 Ref:</span>
-            <span style="font-family: 'JetBrains Mono', monospace; font-size: 0.92rem; font-weight: 700; color: {'#38BDF8' if is_night_theme else '#2563EB'};">${ref_estimate:.2f}</span>
-            <span style="font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; font-weight: 600; color: {'#F59E0B' if is_night_theme else '#D97706'};">({'+' if fare_comp['difference'] >= 0 else '-'}${fare_comp['absolute_difference']:.2f})</span>
-        </div>
-    </div>
+<div style="flex: 1 1 260px; min-width: 220px;">
+<div style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: {'#10B981' if is_night_theme else '#16A34A'}; margin-bottom: 0.25rem;">
+🟢 📍 Pickup Location
+</div>
+<div style="font-size: 0.98rem; font-weight: 700; color: {card_text}; line-height: 1.35; margin-bottom: 0.25rem;">
+{disp_p_addr}
+</div>
+<div style="font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: {'#94A3B8' if is_night_theme else '#64748B'};">
+{p_lat:.4f}, {p_lon:.4f}
+</div>
+</div>
+<div style="text-align: center; padding: 0 0.5rem; flex: 0 0 auto;">
+<div style="font-size: 1.3rem; color: {'#38BDF8' if is_night_theme else '#2563EB'};">↓</div>
+<div style="font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; font-weight: 700; color: {'#38BDF8' if is_night_theme else '#2563EB'}; white-space: nowrap;">
+{distance_km:.1f} km
+</div>
+<div style="font-size: 0.7rem; color: {'#94A3B8' if is_night_theme else '#64748B'};">air distance</div>
+</div>
+<div style="flex: 1 1 260px; min-width: 220px;">
+<div style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: {'#F43F5E' if is_night_theme else '#DC2626'}; margin-bottom: 0.25rem;">
+🔴 🏁 Drop-off Location
+</div>
+<div style="font-size: 0.98rem; font-weight: 700; color: {card_text}; line-height: 1.35; margin-bottom: 0.25rem;">
+{disp_d_addr}
+</div>
+<div style="font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: {'#94A3B8' if is_night_theme else '#64748B'};">
+{d_lat:.4f}, {d_lon:.4f}
+</div>
+</div>
+<div style="border-left: 1px solid {card_border}; padding-left: 1.2rem; flex: 0 1 auto; min-width: 170px; text-align: right;">
+<div style="font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: {'#94A3B8' if is_night_theme else '#64748B'};">
+🤖 ML Prediction
+</div>
+<div style="font-family: 'JetBrains Mono', monospace; font-size: 1.7rem; font-weight: 800; color: {'#10B981' if is_night_theme else '#16A34A'}; line-height: 1.1; margin-top: 0.15rem;">
+${pred_fare:.2f}
+</div>
+<div style="font-size: 0.68rem; color: {'#94A3B8' if is_night_theme else '#64748B'}; margin-bottom: 0.15rem;">
+PyTorch DNN (Huber)
+</div>
+<div style="font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; color: {'#38BDF8' if is_night_theme else '#0284C7'}; margin-bottom: 0.35rem; font-weight: 600;">
+📊 95% Interval: {dnn_interval.get('formatted', '$' + f'{pred_fare:.2f}')}
+</div>
+<div style="border-top: 1px solid {card_border}; padding-top: 0.3rem; display: flex; justify-content: flex-end; align-items: baseline; gap: 0.4rem;">
+<span style="font-size: 0.7rem; color: {'#94A3B8' if is_night_theme else '#64748B'}; font-weight: 600;">📜 Ref:</span>
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 0.92rem; font-weight: 700; color: {'#38BDF8' if is_night_theme else '#2563EB'};">${ref_estimate:.2f}</span>
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; font-weight: 600; color: {'#F59E0B' if is_night_theme else '#D97706'};">({'+' if fare_comp['difference'] >= 0 else '-'}${fare_comp['absolute_difference']:.2f})</span>
+</div>
+</div>
 </div>
 """, unsafe_allow_html=True)
 
@@ -2080,40 +2076,40 @@ ratio_display = f"{road_air_ratio:.2f}×" if (is_route_success and road_air_rati
 
 st.markdown(f"""
 <div style="background: {card_bg}; border: 1px solid {card_border}; border-radius: 16px; padding: 1.2rem 1.4rem; margin-bottom: 1.2rem; box-shadow: 0 4px 18px rgba(0,0,0,0.05);">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.8rem; border-bottom: 1px solid {card_border}; padding-bottom: 0.5rem; flex-wrap: wrap; gap: 0.5rem;">
-        <div style="font-size: 0.95rem; font-weight: 700; color: {'#38BDF8' if is_night_theme else '#0284C7'}; text-transform: uppercase; letter-spacing: 0.06em;">
-            🗺️ Real Road Route & Driving Telemetry
-        </div>
-        <div style="font-size: 0.82rem;">
-            {route_status_badge}
-        </div>
-    </div>
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 0.75rem;">
-        <div style="background: {'rgba(15, 23, 42, 0.45)' if is_night_theme else '#F8FAFC'}; padding: 0.75rem 1rem; border-radius: 12px; border: 1px solid {card_border};">
-            <div style="font-size: 0.72rem; text-transform: uppercase; font-weight: 600; color: {card_text}; letter-spacing: 0.05em;">Air Distance (DNN Input)</div>
-            <div style="font-family: 'JetBrains Mono', monospace; font-size: 1.45rem; font-weight: 700; color: {'#F1F5F9' if is_night_theme else '#0F172A'}; margin-top: 0.2rem;">{distance_km:.2f} <span style="font-size: 0.85rem; color: {card_text};">km</span></div>
-            <div style="font-size: 0.75rem; color: {card_text};">Great-circle geodesic arc</div>
-        </div>
-        <div style="background: {'rgba(15, 23, 42, 0.45)' if is_night_theme else '#F8FAFC'}; padding: 0.75rem 1rem; border-radius: 12px; border: 1px solid {card_border};">
-            <div style="font-size: 0.72rem; text-transform: uppercase; font-weight: 600; color: {'#38BDF8' if is_night_theme else '#0284C7'}; letter-spacing: 0.05em;">Actual Road Distance</div>
-            <div style="font-family: 'JetBrains Mono', monospace; font-size: 1.45rem; font-weight: 700; color: {'#38BDF8' if is_night_theme else '#0284C7'}; margin-top: 0.2rem;">{road_dist_display}</div>
-            <div style="font-size: 0.75rem; color: {card_text};">Turn-by-turn road network</div>
-        </div>
-        <div style="background: {'rgba(15, 23, 42, 0.45)' if is_night_theme else '#F8FAFC'}; padding: 0.75rem 1rem; border-radius: 12px; border: 1px solid {card_border};">
-            <div style="font-size: 0.72rem; text-transform: uppercase; font-weight: 600; color: {card_text}; letter-spacing: 0.05em;">Road / Air Ratio</div>
-            <div style="font-family: 'JetBrains Mono', monospace; font-size: 1.45rem; font-weight: 700; color: {'#F59E0B' if is_night_theme else '#D97706'}; margin-top: 0.2rem;">{ratio_display}</div>
-            <div style="font-size: 0.75rem; color: {card_text};">Informational geometry ratio</div>
-        </div>
-        <div style="background: {'rgba(15, 23, 42, 0.45)' if is_night_theme else '#F8FAFC'}; padding: 0.75rem 1rem; border-radius: 12px; border: 1px solid {card_border};">
-            <div style="font-size: 0.72rem; text-transform: uppercase; font-weight: 600; color: {'#10B981' if is_night_theme else '#16A34A'}; letter-spacing: 0.05em;">Estimated Driving Time</div>
-            <div style="font-family: 'JetBrains Mono', monospace; font-size: 1.45rem; font-weight: 700; color: {'#10B981' if is_night_theme else '#16A34A'}; margin-top: 0.2rem;">{road_dur_fmt}</div>
-            <div style="font-size: 0.75rem; color: {card_text};">Routing API live ETA</div>
-        </div>
-    </div>
-    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem; font-size: 0.76rem; color: {card_text};">
-        <div>📡 <b>Routing Provider:</b> <code style="color: {'#38BDF8' if is_night_theme else '#0284C7'};">{routing_provider}</code></div>
-        <div>ℹ️ <i>Current DNN was trained using the original feature schema. Road distance is currently used for routing and trip intelligence.</i></div>
-    </div>
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.8rem; border-bottom: 1px solid {card_border}; padding-bottom: 0.5rem; flex-wrap: wrap; gap: 0.5rem;">
+<div style="font-size: 0.95rem; font-weight: 700; color: {'#38BDF8' if is_night_theme else '#0284C7'}; text-transform: uppercase; letter-spacing: 0.06em;">
+🗺️ Real Road Route & Driving Telemetry
+</div>
+<div style="font-size: 0.82rem;">
+{route_status_badge}
+</div>
+</div>
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 0.75rem;">
+<div style="background: {'rgba(15, 23, 42, 0.45)' if is_night_theme else '#F8FAFC'}; padding: 0.75rem 1rem; border-radius: 12px; border: 1px solid {card_border};">
+<div style="font-size: 0.72rem; text-transform: uppercase; font-weight: 600; color: {card_text}; letter-spacing: 0.05em;">Air Distance (DNN Input)</div>
+<div style="font-family: 'JetBrains Mono', monospace; font-size: 1.45rem; font-weight: 700; color: {'#F1F5F9' if is_night_theme else '#0F172A'}; margin-top: 0.2rem;">{distance_km:.2f} <span style="font-size: 0.85rem; color: {card_text};">km</span></div>
+<div style="font-size: 0.75rem; color: {card_text};">Great-circle geodesic arc</div>
+</div>
+<div style="background: {'rgba(15, 23, 42, 0.45)' if is_night_theme else '#F8FAFC'}; padding: 0.75rem 1rem; border-radius: 12px; border: 1px solid {card_border};">
+<div style="font-size: 0.72rem; text-transform: uppercase; font-weight: 600; color: {'#38BDF8' if is_night_theme else '#0284C7'}; letter-spacing: 0.05em;">Actual Road Distance</div>
+<div style="font-family: 'JetBrains Mono', monospace; font-size: 1.45rem; font-weight: 700; color: {'#38BDF8' if is_night_theme else '#0284C7'}; margin-top: 0.2rem;">{road_dist_display}</div>
+<div style="font-size: 0.75rem; color: {card_text};">Turn-by-turn road network</div>
+</div>
+<div style="background: {'rgba(15, 23, 42, 0.45)' if is_night_theme else '#F8FAFC'}; padding: 0.75rem 1rem; border-radius: 12px; border: 1px solid {card_border};">
+<div style="font-size: 0.72rem; text-transform: uppercase; font-weight: 600; color: {card_text}; letter-spacing: 0.05em;">Road / Air Ratio</div>
+<div style="font-family: 'JetBrains Mono', monospace; font-size: 1.45rem; font-weight: 700; color: {'#F59E0B' if is_night_theme else '#D97706'}; margin-top: 0.2rem;">{ratio_display}</div>
+<div style="font-size: 0.75rem; color: {card_text};">Informational geometry ratio</div>
+</div>
+<div style="background: {'rgba(15, 23, 42, 0.45)' if is_night_theme else '#F8FAFC'}; padding: 0.75rem 1rem; border-radius: 12px; border: 1px solid {card_border};">
+<div style="font-size: 0.72rem; text-transform: uppercase; font-weight: 600; color: {'#10B981' if is_night_theme else '#16A34A'}; letter-spacing: 0.05em;">Estimated Driving Time</div>
+<div style="font-family: 'JetBrains Mono', monospace; font-size: 1.45rem; font-weight: 700; color: {'#10B981' if is_night_theme else '#16A34A'}; margin-top: 0.2rem;">{road_dur_fmt}</div>
+<div style="font-size: 0.75rem; color: {card_text};">Routing API live ETA</div>
+</div>
+</div>
+<div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem; font-size: 0.76rem; color: {card_text};">
+<div>📡 <b>Routing Provider:</b> <code style="color: {'#38BDF8' if is_night_theme else '#0284C7'};">{routing_provider}</code></div>
+<div>ℹ️ <i>Current DNN was trained using the original feature schema. Road distance is currently used for routing and trip intelligence.</i></div>
+</div>
 </div>
 """, unsafe_allow_html=True)
 
@@ -2210,12 +2206,12 @@ m_cols = st.columns(4)
 
 with m_cols[0]:
     st.markdown(f"""
-    <div class="glass-card">
-        <div class="metric-label">Air Distance (DNN Input)</div>
-        <div class="metric-number">{distance_km:.2f} <span style="font-size: 1rem; color: {'#94A3B8' if is_night_theme else '#64748B'};">km</span></div>
-        <div class="metric-sub">{distance_km * 0.621371:.2f} miles great-circle arc</div>
-    </div>
-    """, unsafe_allow_html=True)
+<div class="glass-card">
+<div class="metric-label">Air Distance (DNN Input)</div>
+<div class="metric-number">{distance_km:.2f} <span style="font-size: 1rem; color: {'#94A3B8' if is_night_theme else '#64748B'};">km</span></div>
+<div class="metric-sub">{distance_km * 0.621371:.2f} miles great-circle arc</div>
+</div>
+""", unsafe_allow_html=True)
 
 with m_cols[1]:
     if is_route_success and road_dist_km is not None:
@@ -2226,12 +2222,12 @@ with m_cols[1]:
         road_sub_html = "Routing unavailable — duration estimate unavailable"
 
     st.markdown(f"""
-    <div class="glass-card">
-        <div class="metric-label">Actual Street Driving (OSRM)</div>
-        <div class="metric-number" style="color: {'#38BDF8' if is_night_theme else '#0284C7'};">{road_num_html}</div>
-        <div class="metric-sub">{road_sub_html}</div>
-    </div>
-    """, unsafe_allow_html=True)
+<div class="glass-card">
+<div class="metric-label">Actual Street Driving (OSRM)</div>
+<div class="metric-number" style="color: {'#38BDF8' if is_night_theme else '#0284C7'};">{road_num_html}</div>
+<div class="metric-sub">{road_sub_html}</div>
+</div>
+""", unsafe_allow_html=True)
 
 with m_cols[2]:
     if trip_weather.get("available"):
@@ -2242,21 +2238,21 @@ with m_cols[2]:
         w_card_sub = trip_weather.get("error", "Pickup coordinates required")
 
     st.markdown(f"""
-    <div class="glass-card">
-        <div class="metric-label">Weather Context (Open-Meteo)</div>
-        <div style="font-size: 1.05rem; font-weight: 700; color: {'#F1F5F9' if is_night_theme else '#0F172A'}; margin: 0.3rem 0;">{w_card_badge}</div>
-        <div class="metric-sub">{w_card_sub}</div>
-    </div>
-    """, unsafe_allow_html=True)
+<div class="glass-card">
+<div class="metric-label">Weather Context (Open-Meteo)</div>
+<div style="font-size: 1.05rem; font-weight: 700; color: {'#F1F5F9' if is_night_theme else '#0F172A'}; margin: 0.3rem 0;">{w_card_badge}</div>
+<div class="metric-sub">{w_card_sub}</div>
+</div>
+""", unsafe_allow_html=True)
 
 with m_cols[3]:
     st.markdown(f"""
-    <div class="glass-card">
-        <div class="metric-label">Temporal & Vector Context</div>
-        <div class="metric-number" style="font-size: 1.55rem; color: {'#38BDF8' if is_night_theme else '#0284C7'};">{pickup_dt.strftime('%A')} <span style="font-size: 1rem; color: {'#94A3B8' if is_night_theme else '#64748B'};">{compass_str} ({bearing_deg:.0f}°)</span></div>
-        <div class="metric-sub">{passengers} Passenger{'s' if passengers > 1 else ''} • {trip_time.strftime('%I:%M %p')}</div>
-    </div>
-    """, unsafe_allow_html=True)
+<div class="glass-card">
+<div class="metric-label">Temporal & Vector Context</div>
+<div class="metric-number" style="font-size: 1.55rem; color: {'#38BDF8' if is_night_theme else '#0284C7'};">{pickup_dt.strftime('%A')} <span style="font-size: 1rem; color: {'#94A3B8' if is_night_theme else '#64748B'};">{compass_str} ({bearing_deg:.0f}°)</span></div>
+<div class="metric-sub">{passengers} Passenger{'s' if passengers > 1 else ''} • {trip_time.strftime('%I:%M %p')}</div>
+</div>
+""", unsafe_allow_html=True)
 
 st.markdown("<br>", unsafe_allow_html=True)
 
@@ -2307,17 +2303,15 @@ with tab_main:
 
     # Multi-Model Comparison Strip if toggled
     if toggle_quick_compare:
-        st.markdown(f"""
-        <div style="display: flex; gap: 0.8rem; flex-wrap: wrap; margin: 0.6rem 0 1rem 0; padding: 0.8rem 1.2rem; background: {card_bg}; border-radius: 14px; border: 1px solid {card_border}; box-shadow: 0 4px 14px rgba(0,0,0,0.05); align-items: center; justify-content: space-between;">
-            <div><span style="color: {card_text}; font-size: 0.72rem; text-transform: uppercase; font-weight: 700;">PyTorch DNN:</span> <b style="color: {'#10B981' if is_night_theme else '#16A34A'}; font-size: 1.15rem; font-family: 'JetBrains Mono';">${pred_fare:.2f}</b></div>
-            <div style="border-left: 1px solid {card_border}; height: 22px;"></div>
-            <div><span style="color: {card_text}; font-size: 0.72rem; text-transform: uppercase; font-weight: 700;">LightGBM:</span> <b style="color: {'#38BDF8' if is_night_theme else '#0284C7'}; font-size: 1.15rem; font-family: 'JetBrains Mono';">${lgb_pred:.2f}</b> <span style="font-size: 0.75rem; color: {'#10B981' if lgb_pred <= pred_fare else '#DC2626'};">({lgb_pred - pred_fare:+.2f})</span></div>
-            <div style="border-left: 1px solid {card_border}; height: 22px;"></div>
-            <div><span style="color: {card_text}; font-size: 0.72rem; text-transform: uppercase; font-weight: 700;">Linear OLS:</span> <b style="color: {'#F59E0B' if is_night_theme else '#D97706'}; font-size: 1.15rem; font-family: 'JetBrains Mono';">${lr_pred:.2f}</b> <span style="font-size: 0.75rem; color: {'#10B981' if lr_pred <= pred_fare else '#DC2626'};">({lr_pred - pred_fare:+.2f})</span></div>
-            <div style="border-left: 1px solid {card_border}; height: 22px;"></div>
-            <div><span style="color: {card_text}; font-size: 0.72rem; text-transform: uppercase; font-weight: 700;">TLC Regulatory:</span> <b style="color: {'#E2E8F0' if is_night_theme else '#0F172A'}; font-size: 1.15rem; font-family: 'JetBrains Mono';">${est_rule_fare:.2f}</b> <span style="font-size: 0.75rem; color: {'#10B981' if est_rule_fare <= pred_fare else '#DC2626'};">({est_rule_fare - pred_fare:+.2f})</span></div>
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown(f"""<div style="display: flex; gap: 0.8rem; flex-wrap: wrap; margin: 0.6rem 0 1rem 0; padding: 0.8rem 1.2rem; background: {card_bg}; border-radius: 14px; border: 1px solid {card_border}; box-shadow: 0 4px 14px rgba(0,0,0,0.05); align-items: center; justify-content: space-between;">
+<div><span style="color: {card_text}; font-size: 0.72rem; text-transform: uppercase; font-weight: 700;">PyTorch DNN:</span> <b style="color: {'#10B981' if is_night_theme else '#16A34A'}; font-size: 1.15rem; font-family: 'JetBrains Mono';">${pred_fare:.2f}</b></div>
+<div style="border-left: 1px solid {card_border}; height: 22px;"></div>
+<div><span style="color: {card_text}; font-size: 0.72rem; text-transform: uppercase; font-weight: 700;">LightGBM:</span> <b style="color: {'#38BDF8' if is_night_theme else '#0284C7'}; font-size: 1.15rem; font-family: 'JetBrains Mono';">${lgb_pred:.2f}</b> <span style="font-size: 0.75rem; color: {'#10B981' if lgb_pred <= pred_fare else '#DC2626'};">({lgb_pred - pred_fare:+.2f})</span></div>
+<div style="border-left: 1px solid {card_border}; height: 22px;"></div>
+<div><span style="color: {card_text}; font-size: 0.72rem; text-transform: uppercase; font-weight: 700;">Linear OLS:</span> <b style="color: {'#F59E0B' if is_night_theme else '#D97706'}; font-size: 1.15rem; font-family: 'JetBrains Mono';">${lr_pred:.2f}</b> <span style="font-size: 0.75rem; color: {'#10B981' if lr_pred <= pred_fare else '#DC2626'};">({lr_pred - pred_fare:+.2f})</span></div>
+<div style="border-left: 1px solid {card_border}; height: 22px;"></div>
+<div><span style="color: {card_text}; font-size: 0.72rem; text-transform: uppercase; font-weight: 700;">TLC Regulatory:</span> <b style="color: {'#E2E8F0' if is_night_theme else '#0F172A'}; font-size: 1.15rem; font-family: 'JetBrains Mono';">${est_rule_fare:.2f}</b> <span style="font-size: 0.75rem; color: {'#10B981' if est_rule_fare <= pred_fare else '#DC2626'};">({est_rule_fare - pred_fare:+.2f})</span></div>
+</div>""", unsafe_allow_html=True)
 
     # Live Neural Inspector if toggled
     if toggle_neural_inspect and layer_activations:
@@ -2348,14 +2342,14 @@ with tab_main:
                 st.plotly_chart(fig_diag, use_container_width=True)
             with col_diag2:
                 st.markdown(f"""
-                <div style="background: {card_bg}; padding: 0.9rem 1.1rem; border-radius: 12px; border: 1px solid {card_border}; font-size: 0.82rem; color: {chart_font_color}; box-shadow: 0 4px 12px rgba(0,0,0,0.04);">
-                    <div>⚡ <b>Inference Latency:</b> <code style="color: {'#38BDF8' if is_night_theme else '#0284C7'};">{infer_duration_ms:.2f} ms</code></div>
-                    <div style="margin-top: 0.35rem;">🎯 <b>L1 Active Neurons:</b> <code>{layer_activations.get('L1_active_pct', 0):.1f}%</code> (Sparsity: {100 - layer_activations.get('L1_active_pct', 0):.1f}%)</div>
-                    <div style="margin-top: 0.35rem;">🎯 <b>L2 Active Neurons:</b> <code>{layer_activations.get('L2_active_pct', 0):.1f}%</code> (Sparsity: {100 - layer_activations.get('L2_active_pct', 0):.1f}%)</div>
-                    <div style="margin-top: 0.35rem;">🎯 <b>L3 Active Neurons:</b> <code>{layer_activations.get('L3_active_pct', 0):.1f}%</code> (Sparsity: {100 - layer_activations.get('L3_active_pct', 0):.1f}%)</div>
-                    <div style="margin-top: 0.35rem;">📐 <b>Input Dimension:</b> <code>33 Feature Columns</code></div>
-                </div>
-                """, unsafe_allow_html=True)
+<div style="background: {card_bg}; padding: 0.9rem 1.1rem; border-radius: 12px; border: 1px solid {card_border}; font-size: 0.82rem; color: {chart_font_color}; box-shadow: 0 4px 12px rgba(0,0,0,0.04);">
+<div>⚡ <b>Inference Latency:</b> <code style="color: {'#38BDF8' if is_night_theme else '#0284C7'};">{infer_duration_ms:.2f} ms</code></div>
+<div style="margin-top: 0.35rem;">🎯 <b>L1 Active Neurons:</b> <code>{layer_activations.get('L1_active_pct', 0):.1f}%</code> (Sparsity: {100 - layer_activations.get('L1_active_pct', 0):.1f}%)</div>
+<div style="margin-top: 0.35rem;">🎯 <b>L2 Active Neurons:</b> <code>{layer_activations.get('L2_active_pct', 0):.1f}%</code> (Sparsity: {100 - layer_activations.get('L2_active_pct', 0):.1f}%)</div>
+<div style="margin-top: 0.35rem;">🎯 <b>L3 Active Neurons:</b> <code>{layer_activations.get('L3_active_pct', 0):.1f}%</code> (Sparsity: {100 - layer_activations.get('L3_active_pct', 0):.1f}%)</div>
+<div style="margin-top: 0.35rem;">📐 <b>Input Dimension:</b> <code>33 Feature Columns</code></div>
+</div>
+""", unsafe_allow_html=True)
 
     col_hud, col_map = st.columns([1.05, 1.35])
     
@@ -2364,21 +2358,26 @@ with tab_main:
         
         tip_notice_html = f'<div style="font-size: 0.82rem; color: {"#FDE68A" if is_night_theme else "#2563EB"}; margin-top: -0.1rem; margin-bottom: 0.4rem; font-weight: 600;">★ Includes 18% Gratuity (Base: ${pred_fare:.2f} + Tip: ${meter_display_fare - pred_fare:.2f})</div>' if toggle_tip else ''
 
-        st.markdown(f"""
-        <div class="taximeter-hud">
-            {jfk_badge_html}
-            <div class="taximeter-title">🤖 ML PREDICTION</div>
-            <div class="taximeter-fare">${meter_display_fare:.2f}</div>
-            {tip_notice_html}
-            <div class="taximeter-ci">
-                Estimated Prediction Interval: <b>${dnn_interval['lower_bound']:.2f} – ${dnn_interval['upper_bound']:.2f}</b><br>
-                <span style="font-size: 0.72rem; font-weight: 500; opacity: 0.85;">Method: {dnn_interval['method']}</span>
-            </div>
-            <div style="font-size: 0.78rem; color: {'#D1FAE5' if is_night_theme else '#64748B'}; margin-top: 0.8rem;">
-                Model: PyTorch Deep Feedforward Neural Network (Huber Loss δ=1.0, 33 Features)
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+        hud_parts = ['<div class="taximeter-hud">']
+        if jfk_badge_html:
+            hud_parts.append(jfk_badge_html)
+        hud_parts.append('<div class="taximeter-title">🤖 ML PREDICTION</div>')
+        hud_parts.append(f'<div class="taximeter-fare">${meter_display_fare:.2f}</div>')
+        if tip_notice_html:
+            hud_parts.append(tip_notice_html)
+        hud_parts.append(
+            f'<div class="taximeter-ci">'
+            f'Estimated Prediction Interval: <b>${dnn_interval["lower_bound"]:.2f} – ${dnn_interval["upper_bound"]:.2f}</b><br>'
+            f'<span style="font-size: 0.72rem; font-weight: 500; opacity: 0.85;">Method: {dnn_interval["method"]}</span>'
+            f'</div>'
+        )
+        hud_parts.append(
+            f'<div style="font-size: 0.78rem; color: {"#D1FAE5" if is_night_theme else "#64748B"}; margin-top: 0.8rem;">'
+            f'Model: PyTorch Deep Feedforward Neural Network (Huber Loss δ=1.0, 33 Features)'
+            f'</div>'
+        )
+        hud_parts.append('</div>')
+        st.markdown("".join(hud_parts), unsafe_allow_html=True)
         
         # Plotly Luxury Gauge Meter
         fig_gauge = go.Figure(go.Indicator(
@@ -2415,29 +2414,29 @@ with tab_main:
         
         # Side-by-Side FARE COMPARISON Card (ML vs Reference)
         st.markdown(f"""
-        <div style="background: {card_bg}; border: 1px solid {card_border}; border-radius: 14px; padding: 1.1rem 1.3rem; margin: 0.8rem 0; box-shadow: 0 4px 14px rgba(0,0,0,0.04);">
-            <div style="font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: {'#38BDF8' if is_night_theme else '#0284C7'}; margin-bottom: 0.6rem;">
-                ⚖️ FARE COMPARISON (ML vs REFERENCE)
-            </div>
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
-                <span style="font-size: 0.9rem; color: {card_text}; font-weight: 600;">🤖 ML Prediction</span>
-                <span style="font-family: 'JetBrains Mono', monospace; font-size: 1.15rem; font-weight: 800; color: {'#10B981' if is_night_theme else '#16A34A'};">${pred_fare:.2f}</span>
-            </div>
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-                <span style="font-size: 0.9rem; color: {card_text}; font-weight: 600;">📜 Reference Estimate</span>
-                <span style="font-family: 'JetBrains Mono', monospace; font-size: 1.15rem; font-weight: 800; color: {'#38BDF8' if is_night_theme else '#2563EB'};">${ref_estimate:.2f}</span>
-            </div>
-            <div style="border-top: 1px solid {card_border}; padding-top: 0.5rem; display: flex; justify-content: space-between; align-items: center;">
-                <span style="font-size: 0.88rem; font-weight: 700; color: {card_text};">Difference</span>
-                <span style="font-family: 'JetBrains Mono', monospace; font-size: 1.15rem; font-weight: 800; color: {'#F59E0B' if is_night_theme else '#D97706'};">
-                    ${fare_comp['absolute_difference']:.2f} <span style="font-size: 0.8rem; font-weight: 600;">({'+' if fare_comp['difference'] >= 0 else '-'}{fare_comp['percentage_difference']:.1f}%)</span>
-                </span>
-            </div>
-            <div style="font-size: 0.74rem; color: {'#94A3B8' if is_night_theme else '#64748B'}; margin-top: 0.45rem;">
-                {fare_comp['explanation']}
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+<div style="background: {card_bg}; border: 1px solid {card_border}; border-radius: 14px; padding: 1.1rem 1.3rem; margin: 0.8rem 0; box-shadow: 0 4px 14px rgba(0,0,0,0.04);">
+<div style="font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: {'#38BDF8' if is_night_theme else '#0284C7'}; margin-bottom: 0.6rem;">
+⚖️ FARE COMPARISON (ML vs REFERENCE)
+</div>
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+<span style="font-size: 0.9rem; color: {card_text}; font-weight: 600;">🤖 ML Prediction</span>
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 1.15rem; font-weight: 800; color: {'#10B981' if is_night_theme else '#16A34A'};">${pred_fare:.2f}</span>
+</div>
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+<span style="font-size: 0.9rem; color: {card_text}; font-weight: 600;">📜 Reference Estimate</span>
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 1.15rem; font-weight: 800; color: {'#38BDF8' if is_night_theme else '#2563EB'};">${ref_estimate:.2f}</span>
+</div>
+<div style="border-top: 1px solid {card_border}; padding-top: 0.5rem; display: flex; justify-content: space-between; align-items: center;">
+<span style="font-size: 0.88rem; font-weight: 700; color: {card_text};">Difference</span>
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 1.15rem; font-weight: 800; color: {'#F59E0B' if is_night_theme else '#D97706'};">
+${fare_comp['absolute_difference']:.2f} <span style="font-size: 0.8rem; font-weight: 600;">({'+' if fare_comp['difference'] >= 0 else '-'}{fare_comp['percentage_difference']:.1f}%)</span>
+</span>
+</div>
+<div style="font-size: 0.74rem; color: {'#94A3B8' if is_night_theme else '#64748B'}; margin-top: 0.45rem;">
+{fare_comp['explanation']}
+</div>
+</div>
+""", unsafe_allow_html=True)
 
         # Scientific Prediction Uncertainty Card (Feature #5)
         if dnn_interval and dnn_interval.get("status") == "success":
@@ -2876,14 +2875,12 @@ Provider: <b>{traffic_info.get('provider', 'Routing Service')}</b>
     r_cols = st.columns([1.1, 1.1, 1.1, 0.9])
     for c_i, cab in enumerate(nearby_cabs):
         with r_cols[c_i]:
-            st.markdown(f"""
-            <div style="background: {card_bg}; padding: 0.85rem 1rem; border-radius: 12px; border: 1px solid {card_border}; box-shadow: 0 4px 12px rgba(0,0,0,0.04);">
-                <div style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700; color: {'#F59E0B' if is_night_theme else '#D97706'};">🚖 Medallion #{cab['medallion']}</div>
-                <div style="font-weight: 700; font-size: 0.92rem; color: {'#F1F5F9' if is_night_theme else '#0F172A'}; margin-top: 0.2rem;">{cab['model']}</div>
-                <div style="font-size: 0.8rem; color: {card_text}; margin-top: 0.2rem;">Driver: <b>{cab['driver']}</b> ({cab['rating']})</div>
-                <div style="font-size: 0.85rem; color: {'#10B981' if is_night_theme else '#16A34A'}; font-weight: 700; margin-top: 0.35rem;">⚡ {cab['dist_m']}m away • ETA: ~{cab['eta_min']} min</div>
-            </div>
-            """, unsafe_allow_html=True)
+            st.markdown(f"""<div style="background: {card_bg}; padding: 0.85rem 1rem; border-radius: 12px; border: 1px solid {card_border}; box-shadow: 0 4px 12px rgba(0,0,0,0.04);">
+<div style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700; color: {'#F59E0B' if is_night_theme else '#D97706'};">🚖 Medallion #{cab['medallion']}</div>
+<div style="font-weight: 700; font-size: 0.92rem; color: {'#F1F5F9' if is_night_theme else '#0F172A'}; margin-top: 0.2rem;">{cab['model']}</div>
+<div style="font-size: 0.8rem; color: {card_text}; margin-top: 0.2rem;">Driver: <b>{cab['driver']}</b> ({cab['rating']})</div>
+<div style="font-size: 0.85rem; color: {'#10B981' if is_night_theme else '#16A34A'}; font-weight: 700; margin-top: 0.35rem;">⚡ {cab['dist_m']}m away • ETA: ~{cab['eta_min']} min</div>
+</div>""", unsafe_allow_html=True)
     with r_cols[3]:
         st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
         if st.button("📡 Dispatch Nearest Cab", key="btn_dispatch_cab", use_container_width=True):
@@ -3214,13 +3211,11 @@ with tab_whatif:
                 p_preds = dnn_model(torch.tensor(p_scaled, dtype=torch.float32)).numpy().flatten()
             p_fares = [max(2.50, round(float(f) * weather_mult, 2)) for f in p_preds]
             
-            st.markdown(f"""
-            <div class="glass-card">
-                <span style="font-size: 0.85rem; color: {'#94A3B8' if is_night_theme else '#475569'};">
-                    <b>Occupancy Sensitivity (1 to 6 Passengers):</b> Range: <b style="color: {'#38BDF8' if is_night_theme else '#2563EB'};">${min(p_fares):.2f}</b> – <b style="color: {'#38BDF8' if is_night_theme else '#2563EB'};">${max(p_fares):.2f}</b>. Confirms model correctly separates physical distance from vehicle occupancy while slightly adjusting for larger groups.
-                </span>
-            </div>
-            """, unsafe_allow_html=True)
+            st.markdown(f"""<div class="glass-card">
+<span style="font-size: 0.85rem; color: {'#94A3B8' if is_night_theme else '#475569'};">
+<b>Occupancy Sensitivity (1 to 6 Passengers):</b> Range: <b style="color: {'#38BDF8' if is_night_theme else '#2563EB'};">${min(p_fares):.2f}</b> – <b style="color: {'#38BDF8' if is_night_theme else '#2563EB'};">${max(p_fares):.2f}</b>. Confirms model correctly separates physical distance from vehicle occupancy while slightly adjusting for larger groups.
+</span>
+</div>""", unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
 # TAB 4: OFFICIAL NYC TLC DIGITAL E-RECEIPT
@@ -3808,40 +3803,32 @@ with tab_health:
 
     m_col1, m_col2, m_col3, m_col4 = st.columns(4)
     with m_col1:
-        st.markdown(f"""
-        <div class="glass-card" style="padding: 0.9rem 1rem;">
-            <div class="metric-label">Model Identifier</div>
-            <div style="font-size: 1.15rem; font-weight: 700; color: {'#38BDF8' if is_night_theme else '#2563EB'}; margin-top: 0.2rem;">{static_meta['model_name']}</div>
-            <div class="metric-sub">Version: <b>{static_meta['model_version']}</b></div>
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown(f"""<div class="glass-card" style="padding: 0.9rem 1rem;">
+<div class="metric-label">Model Identifier</div>
+<div style="font-size: 1.15rem; font-weight: 700; color: {'#38BDF8' if is_night_theme else '#2563EB'}; margin-top: 0.2rem;">{static_meta['model_name']}</div>
+<div class="metric-sub">Version: <b>{static_meta['model_version']}</b></div>
+</div>""", unsafe_allow_html=True)
 
     with m_col2:
-        st.markdown(f"""
-        <div class="glass-card" style="padding: 0.9rem 1rem;">
-            <div class="metric-label">ML Framework</div>
-            <div style="font-size: 1.15rem; font-weight: 700; color: {'#10B981' if is_night_theme else '#16A34A'}; margin-top: 0.2rem;">{static_meta['framework']}</div>
-            <div class="metric-sub">Parameters: <b>{static_meta['total_parameters']:,}</b></div>
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown(f"""<div class="glass-card" style="padding: 0.9rem 1rem;">
+<div class="metric-label">ML Framework</div>
+<div style="font-size: 1.15rem; font-weight: 700; color: {'#10B981' if is_night_theme else '#16A34A'}; margin-top: 0.2rem;">{static_meta['framework']}</div>
+<div class="metric-sub">Parameters: <b>{static_meta['total_parameters']:,}</b></div>
+</div>""", unsafe_allow_html=True)
 
     with m_col3:
-        st.markdown(f"""
-        <div class="glass-card" style="padding: 0.9rem 1rem;">
-            <div class="metric-label">Training Partition</div>
-            <div style="font-size: 1.15rem; font-weight: 700; color: {'#F59E0B' if is_night_theme else '#D97706'}; margin-top: 0.2rem;">{static_meta['train_samples']:,}</div>
-            <div class="metric-sub">Val: <b>{static_meta['val_samples']:,}</b> | Test: <b>{static_meta['test_samples']:,}</b></div>
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown(f"""<div class="glass-card" style="padding: 0.9rem 1rem;">
+<div class="metric-label">Training Partition</div>
+<div style="font-size: 1.15rem; font-weight: 700; color: {'#F59E0B' if is_night_theme else '#D97706'}; margin-top: 0.2rem;">{static_meta['train_samples']:,}</div>
+<div class="metric-sub">Val: <b>{static_meta['val_samples']:,}</b> | Test: <b>{static_meta['test_samples']:,}</b></div>
+</div>""", unsafe_allow_html=True)
 
     with m_col4:
-        st.markdown(f"""
-        <div class="glass-card" style="padding: 0.9rem 1rem;">
-            <div class="metric-label">Training Date & Epochs</div>
-            <div style="font-size: 1.15rem; font-weight: 700; color: {'#E2E8F0' if is_night_theme else '#0F172A'}; margin-top: 0.2rem;">{static_meta['training_date']}</div>
-            <div class="metric-sub">Epochs: <b>{static_meta['epochs_trained']}</b> ({static_meta['training_time_sec']:.0f}s)</div>
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown(f"""<div class="glass-card" style="padding: 0.9rem 1rem;">
+<div class="metric-label">Training Date & Epochs</div>
+<div style="font-size: 1.15rem; font-weight: 700; color: {'#E2E8F0' if is_night_theme else '#0F172A'}; margin-top: 0.2rem;">{static_meta['training_date']}</div>
+<div class="metric-sub">Epochs: <b>{static_meta['epochs_trained']}</b> ({static_meta['training_time_sec']:.0f}s)</div>
+</div>""", unsafe_allow_html=True)
 
     with st.expander("🔍 Deep Neural Architecture & Optimization Topology", expanded=False):
         st.markdown(f"""

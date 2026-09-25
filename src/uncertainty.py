@@ -172,49 +172,40 @@ def create_uncertainty_badge_html(
     interval_color = "#38BDF8" if is_night_theme else "#0284C7"
     pred_marker_color = "#22D3EE" if is_night_theme else "#2563EB"
 
-    html = f"""
-    <div style="background: {card_bg}; border: 1px solid {border_color}; border-radius: 12px; padding: 0.85rem 1.1rem; margin-top: 0.6rem;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.55rem;">
-            <div style="display: flex; align-items: center; gap: 0.4rem;">
-                <span style="font-size: 0.85rem;">📊</span>
-                <span style="font-size: 0.76rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: {interval_color};">
-                    Scientific Prediction Interval ({cov_pct} Coverage)
-                </span>
-            </div>
-            <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: {sub_color};">
-                Width: <b>${width:.2f}</b>
-            </div>
-        </div>
-
-        <!-- Interval Visualizer Track -->
-        <div style="position: relative; margin: 1.1rem 0.5rem 0.6rem 0.5rem; height: 8px; background: {'rgba(56, 189, 248, 0.2)' if is_night_theme else '#E0F2FE'}; border-radius: 6px;">
-            <!-- Left bound pip -->
-            <div style="position: absolute; left: 0%; top: -4px; width: 3px; height: 16px; background: {interval_color}; border-radius: 2px;"></div>
-            
-            <!-- Prediction central marker -->
-            <div style="position: absolute; left: {pred_pct}%; top: -6px; transform: translateX(-50%); width: 20px; height: 20px; border-radius: 50%; background: {pred_marker_color}; border: 2px solid {'#0F172A' if is_night_theme else '#FFFFFF'}; box-shadow: 0 0 10px {'rgba(34, 211, 238, 0.6)' if is_night_theme else 'rgba(37, 99, 235, 0.4)'}; display: flex; align-items: center; justify-content: center; z-index: 2;">
-                <div style="width: 6px; height: 6px; border-radius: 50%; background: {'#0F172A' if is_night_theme else '#FFFFFF'};"></div>
-            </div>
-
-            <!-- Right bound pip -->
-            <div style="position: absolute; right: 0%; top: -4px; width: 3px; height: 16px; background: {interval_color}; border-radius: 2px;"></div>
-        </div>
-
-        <!-- Metric Labels Row -->
-        <div style="display: flex; justify-content: space-between; align-items: flex-end; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; margin-top: 0.2rem;">
-            <div>
-                <div style="font-size: 0.65rem; color: {sub_color}; text-transform: uppercase;">Lower Bound</div>
-                <div style="font-weight: 700; color: {text_color};">${lower:.2f}</div>
-            </div>
-            <div style="text-align: center;">
-                <div style="font-size: 0.65rem; color: {pred_marker_color}; text-transform: uppercase; font-weight: 700;">Point Prediction</div>
-                <div style="font-weight: 800; color: {pred_marker_color}; font-size: 0.95rem;">${pred:.2f}</div>
-            </div>
-            <div style="text-align: right;">
-                <div style="font-size: 0.65rem; color: {sub_color}; text-transform: uppercase;">Upper Bound</div>
-                <div style="font-weight: 700; color: {text_color};">${upper:.2f}</div>
-            </div>
-        </div>
-    </div>
-    """
+    html = f"""<div style="background: {card_bg}; border: 1px solid {border_color}; border-radius: 12px; padding: 0.85rem 1.1rem; margin-top: 0.6rem;">
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.55rem;">
+<div style="display: flex; align-items: center; gap: 0.4rem;">
+<span style="font-size: 0.85rem;">📊</span>
+<span style="font-size: 0.76rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: {interval_color};">
+Scientific Prediction Interval ({cov_pct} Coverage)
+</span>
+</div>
+<div style="font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: {sub_color};">
+Width: <b>${width:.2f}</b>
+</div>
+</div>
+<!-- Interval Visualizer Track -->
+<div style="position: relative; margin: 1.1rem 0.5rem 0.6rem 0.5rem; height: 8px; background: {'rgba(56, 189, 248, 0.2)' if is_night_theme else '#E0F2FE'}; border-radius: 6px;">
+<div style="position: absolute; left: 0%; top: -4px; width: 3px; height: 16px; background: {interval_color}; border-radius: 2px;"></div>
+<div style="position: absolute; left: {pred_pct}%; top: -6px; transform: translateX(-50%); width: 20px; height: 20px; border-radius: 50%; background: {pred_marker_color}; border: 2px solid {'#0F172A' if is_night_theme else '#FFFFFF'}; box-shadow: 0 0 10px {'rgba(34, 211, 238, 0.6)' if is_night_theme else 'rgba(37, 99, 235, 0.4)'}; display: flex; align-items: center; justify-content: center; z-index: 2;">
+<div style="width: 6px; height: 6px; border-radius: 50%; background: {'#0F172A' if is_night_theme else '#FFFFFF'};"></div>
+</div>
+<div style="position: absolute; right: 0%; top: -4px; width: 3px; height: 16px; background: {interval_color}; border-radius: 2px;"></div>
+</div>
+<!-- Metric Labels Row -->
+<div style="display: flex; justify-content: space-between; align-items: flex-end; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; margin-top: 0.2rem;">
+<div>
+<div style="font-size: 0.65rem; color: {sub_color}; text-transform: uppercase;">Lower Bound</div>
+<div style="font-weight: 700; color: {text_color};">${lower:.2f}</div>
+</div>
+<div style="text-align: center;">
+<div style="font-size: 0.65rem; color: {pred_marker_color}; text-transform: uppercase; font-weight: 700;">Point Prediction</div>
+<div style="font-weight: 800; color: {pred_marker_color}; font-size: 0.95rem;">${pred:.2f}</div>
+</div>
+<div style="text-align: right;">
+<div style="font-size: 0.65rem; color: {sub_color}; text-transform: uppercase;">Upper Bound</div>
+<div style="font-weight: 700; color: {text_color};">${upper:.2f}</div>
+</div>
+</div>
+</div>"""
     return html
