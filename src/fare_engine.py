@@ -330,12 +330,15 @@ def get_dnn_prediction_interval(ml_prediction: float, confidence_level: float = 
     margin = 3.25 if confidence_level == 0.95 else 2.60
     lower = max(2.50, round(ml_prediction - margin, 2))
     upper = round(ml_prediction + margin, 2)
+    width = round(upper - lower, 2)
     
     return {
         "lower_bound": lower,
         "upper_bound": upper,
         "margin": margin,
+        "interval_width": width,
         "confidence_level": confidence_level,
         "method": "Validation Residual Distribution (Empirical RMSE = $3.31, n=14,607)",
         "formatted": f"${lower:.2f} – ${upper:.2f}"
     }
+

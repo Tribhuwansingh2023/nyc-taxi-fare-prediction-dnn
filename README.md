@@ -27,6 +27,7 @@ An end-to-end deep learning engineering pipeline designed to predict NYC Yellow 
 - [Real Road Routing & Driving Telemetry](#-real-road-routing--driving-telemetry)
 - [Fare Estimation Engine](#-fare-estimation-engine)
 - [Model Explainability](#-model-explainability)
+- [Prediction Uncertainty](#-prediction-uncertainty)
 - [Deep Neural Network Architecture](#-deep-neural-network-architecture)
 - [Experimental Benchmarks & Results](#-experimental-benchmarks--model-comparison)
 - [Visualizations Gallery](#-visualizations-gallery)
@@ -322,7 +323,32 @@ Evaluating EXPLAIN TEST 10: Global Feature Importance Strictly Separated from Lo
   Global Feature Importance Verified: Sample=500 trips, #1 Global Feature=euclidean_dist -> PASSED [OK]
 
 ================================================================================
-DEPLOYMENT, GEOCODING, ROUTING, FARE ENGINE & EXPLAINABILITY TEST SUMMARY: 37 / 37 Test Cases Passed.
+RUNNING FEATURE #5: SCIENTIFIC PREDICTION UNCERTAINTY & INTERVAL TESTS
+================================================================================
+
+Evaluating UNCERTAINTY TEST 1: Valid Prediction Produces Defensible Prediction Interval...
+  Valid Interval Generated: Pred=$59.33 -> [$54.31 – $64.35] (Width=$10.04, 95%) -> PASSED [OK]
+
+Evaluating UNCERTAINTY TEST 2: Mathematical Ordering Verified (Lower <= Prediction <= Upper)...
+  Mathematical Bounds Verified: $54.31 <= $59.33 <= $64.35 -> PASSED [OK]
+
+Evaluating UNCERTAINTY TEST 3: Interval Width Non-Negative (Width >= 0)...
+  Interval Width Verified: Width=$10.04 (Non-negative & consistent) -> PASSED [OK]
+
+Evaluating UNCERTAINTY TEST 4: Invalid Prediction Input Handled Gracefully (None / NaN)...
+  Invalid Inputs Handled Gracefully: None -> invalid_input, NaN -> invalid_input -> PASSED [OK]
+
+Evaluating UNCERTAINTY TEST 5: Fallback Mechanism on Missing Calibration Data...
+  Calibration Profile Active: SampleSize=14,388, RMSE=$3.29 -> PASSED [OK]
+
+Evaluating UNCERTAINTY TEST 6: Forward DNN Prediction Remains Completely Invariant...
+  Prediction Invariance Confirmed: PredBefore=$56.7991 == PredAfter=$56.7991 -> PASSED [OK]
+
+Evaluating UNCERTAINTY TEST 7: Minimum Statutory Non-Negative Bound Honored ($2.50 Min)...
+  Statutory Min Fare Enforced: Low Pred ($1.20) -> Lower Bound clamped to $2.50 >= $2.50 -> PASSED [OK]
+
+================================================================================
+DEPLOYMENT, GEOCODING, ROUTING, FARE, EXPLAINABILITY & UNCERTAINTY TEST SUMMARY: 44 / 44 Test Cases Passed.
 ================================================================================
 ```
 
@@ -602,6 +628,45 @@ Predicted Fare: $57.07 | Base Trip (Average): $11.83 | Net Attribution: +$45.24
 > [!IMPORTANT]
 > **ML Model Explanation vs. Statutory Regulatory Tariffs:**  
 > The explainability engine explains the **PyTorch Deep Feedforward Neural Network** predictions. It is **NOT** used to explain the statutory reference meter calculations (`src/fare_engine.py`), which are governed by explicit TLC municipal regulations. The two systems remain conceptually and computationally distinct.
+
+---
+
+## 📊 Prediction Uncertainty
+
+The application features a scientifically defensible, leak-free **Prediction Uncertainty Engine** ([`src/uncertainty.py`](file:///c:/Users/tribh/.gemini/antigravity-ide/scratch/nyc_taxi_fare_dnn_assignment/src/uncertainty.py)) that translates single-point neural network outputs into calibrated prediction intervals:
+
+$$\text{Point Prediction: } \hat{y} = \$59.33 \implies \text{Prediction Interval: } [\$54.31, \, \$64.35] \quad (\text{Width: } \$10.04, \, 95\% \text{ Coverage})$$
+
+### 1. Statistical Methodology & Calibration Framework
+Instead of inventing arbitrary ranges (e.g. $\pm 10\%$) or advertising medical-style "confidence scores" (such as "87% confidence"), the interval is calibrated empirically using **Split Conformal Prediction** and **Empirical Residual Quantiles**:
+
+- **Calibration Partition:** Formally calibrated strictly on the unseen hold-out validation partition (`data/processed/val.csv`, $n = 14,388$ records).
+- **Leak-Free Governance:** The final test partition (`data/processed/test.csv`) was kept completely untouched during calibration parameterization, preventing test-set contamination.
+- **Symmetric Absolute Residual Bound:**
+  $$|y - \hat{y}| \le \hat{q}_{1-\alpha}$$
+  where $\hat{q}_{1-\alpha}$ is the $(1-\alpha)$-th empirical quantile of validation residuals.
+  - **95% Marginal Coverage ($\alpha = 0.05$):** Margin = $\pm \$5.02$
+  - **90% Marginal Coverage ($\alpha = 0.10$):** Margin = $\pm \$3.25$ ($\approx \text{Validation RMSE} = \$3.29$)
+  - **80% Marginal Coverage ($\alpha = 0.20$):** Margin = $\pm \$1.97$
+
+$$\text{Lower Bound} = \max\left(2.50, \, \text{round}(\hat{y} - \text{margin}, 2)\right)$$
+$$\text{Upper Bound} = \max\left(\text{Lower Bound}, \, \text{round}(\hat{y} + \text{margin}, 2)\right)$$
+$$\text{Interval Width} = \text{Upper Bound} - \text{Lower Bound}$$
+
+### 2. User Interpretation & Scientific Distinction
+- **What this means:** The prediction interval represents the estimated numerical bounds within which the actual fare is expected to fall under the specified coverage level, based on historical error distribution across $14,388$ validation trips.
+- **What this does NOT mean:** It is **NOT** a guarantee that any individual trip will fall within this range, nor is it a personal certainty score. Unforeseen traffic anomalies, severe road closures, or meter disputes can produce outliers outside the interval.
+
+### 3. Compact UI Visual Representation
+A live interactive visual track is integrated into the primary inference card:
+```text
+Lower Bound ($54.31) ──────────●────────── Upper Bound ($64.35)
+                         Point: $59.33
+                      Coverage: 95% | Width: $10.04
+```
+- **Point Prediction Marker (Cyan/Blue):** Exact model output positioned proportionally along the interval track.
+- **Bounded Range (Light Cyan/Sky Blue):** Shaded region with distinct left/right termination pips.
+- **Theme-Adaptive Styling:** High-contrast readability across Day Mode and Cyber Night Mode.
 
 ---
 

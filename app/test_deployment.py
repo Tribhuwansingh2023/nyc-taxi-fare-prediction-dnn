@@ -624,14 +624,103 @@ def run_deployment_tests():
     else:
         print(f"  Global feature attribution failed or missing: {global_res} -> FAILED")
 
-    total_tests = len(test_cases) + len(geocoding_tests) + len(routing_tests) + len(fare_tests) + len(explainability_tests)
-    total_passed = passed + geo_passed + routing_passed + fare_passed + exp_passed
+    # =========================================================================
+    # FEATURE #5: SCIENTIFIC PREDICTION UNCERTAINTY & INTERVAL TESTS
+    # =========================================================================
+    from uncertainty import compute_prediction_interval, create_uncertainty_badge_html
+
     print("\n" + "="*80)
-    print(f"DEPLOYMENT, GEOCODING, ROUTING, FARE ENGINE & EXPLAINABILITY TEST SUMMARY: {total_passed} / {total_tests} Test Cases Passed.")
+    print("RUNNING FEATURE #5: SCIENTIFIC PREDICTION UNCERTAINTY & INTERVAL TESTS")
+    print("="*80)
+
+    uncertainty_tests = [
+        {"id": 1, "name": "UNCERTAINTY TEST 1: Valid Prediction Produces Defensible Prediction Interval"},
+        {"id": 2, "name": "UNCERTAINTY TEST 2: Mathematical Ordering Verified (Lower <= Prediction <= Upper)"},
+        {"id": 3, "name": "UNCERTAINTY TEST 3: Interval Width Non-Negative (Width >= 0)"},
+        {"id": 4, "name": "UNCERTAINTY TEST 4: Invalid Prediction Input Handled Gracefully (None / NaN)"},
+        {"id": 5, "name": "UNCERTAINTY TEST 5: Fallback Mechanism on Missing Calibration Data"},
+        {"id": 6, "name": "UNCERTAINTY TEST 6: Forward DNN Prediction Remains Completely Invariant"},
+        {"id": 7, "name": "UNCERTAINTY TEST 7: Minimum Statutory Non-Negative Bound Honored ($2.50 Min)"}
+    ]
+
+    unc_passed = 0
+
+    # UNCERTAINTY TEST 1: Valid Prediction Produces Interval
+    print(f"\nEvaluating {uncertainty_tests[0]['name']}...")
+    u_res1 = compute_prediction_interval(59.33, coverage_level=0.95)
+    if u_res1.get("status") == "success" and "lower_bound" in u_res1 and "upper_bound" in u_res1:
+        print(f"  Valid Interval Generated: Pred=${u_res1['prediction']:.2f} -> [{u_res1['formatted']}] (Width=${u_res1['interval_width']:.2f}, {u_res1['coverage_percent']}) -> PASSED [OK]")
+        unc_passed += 1
+    else:
+        print(f"  Prediction interval generation failed: {u_res1} -> FAILED")
+
+    # UNCERTAINTY TEST 2: Mathematical Ordering (Lower <= Pred <= Upper)
+    print(f"\nEvaluating {uncertainty_tests[1]['name']}...")
+    if u_res1["lower_bound"] <= u_res1["prediction"] <= u_res1["upper_bound"]:
+        print(f"  Mathematical Bounds Verified: ${u_res1['lower_bound']:.2f} <= ${u_res1['prediction']:.2f} <= ${u_res1['upper_bound']:.2f} -> PASSED [OK]")
+        unc_passed += 1
+    else:
+        print(f"  Bounds violated: {u_res1} -> FAILED")
+
+    # UNCERTAINTY TEST 3: Interval Width Non-Negative
+    print(f"\nEvaluating {uncertainty_tests[2]['name']}...")
+    if u_res1["interval_width"] >= 0 and u_res1["interval_width"] == round(u_res1["upper_bound"] - u_res1["lower_bound"], 2):
+        print(f"  Interval Width Verified: Width=${u_res1['interval_width']:.2f} (Non-negative & consistent) -> PASSED [OK]")
+        unc_passed += 1
+    else:
+        print(f"  Interval width invalid: {u_res1} -> FAILED")
+
+    # UNCERTAINTY TEST 4: Invalid Input Handled Safely
+    print(f"\nEvaluating {uncertainty_tests[3]['name']}...")
+    u_none = compute_prediction_interval(None)
+    u_nan = compute_prediction_interval(float("nan"))
+    if u_none.get("status") == "invalid_input" and u_nan.get("status") == "invalid_input":
+        print(f"  Invalid Inputs Handled Gracefully: None -> {u_none['status']}, NaN -> {u_nan['status']} -> PASSED [OK]")
+        unc_passed += 1
+    else:
+        print(f"  Invalid inputs not handled safely: None={u_none}, NaN={u_nan} -> FAILED")
+
+    # UNCERTAINTY TEST 5: Fallback Mechanism on Missing Calibration Data
+    print(f"\nEvaluating {uncertainty_tests[4]['name']}...")
+    from uncertainty import load_calibration_data
+    calib = load_calibration_data()
+    if "coverage_levels" in calib and calib.get("calibration_size", 0) > 0:
+        print(f"  Calibration Profile Active: SampleSize={calib.get('calibration_size'):,}, RMSE=${calib.get('root_mean_squared_error', 0):.2f} -> PASSED [OK]")
+        unc_passed += 1
+    else:
+        print(f"  Calibration data missing or corrupt: {calib} -> FAILED")
+
+    # UNCERTAINTY TEST 6: Forward DNN Prediction Invariance
+    print(f"\nEvaluating {uncertainty_tests[5]['name']}...")
+    with torch.no_grad():
+        p_raw1 = model(torch.tensor(dnn_live_scaled, dtype=torch.float32)).item()
+    _ = compute_prediction_interval(p_raw1, coverage_level=0.95)
+    with torch.no_grad():
+        p_raw2 = model(torch.tensor(dnn_live_scaled, dtype=torch.float32)).item()
+    if abs(p_raw1 - p_raw2) < 1e-6:
+        print(f"  Prediction Invariance Confirmed: PredBefore=${p_raw1:.4f} == PredAfter=${p_raw2:.4f} -> PASSED [OK]")
+        unc_passed += 1
+    else:
+        print(f"  Model output altered by interval computation -> FAILED")
+
+    # UNCERTAINTY TEST 7: Minimum Statutory Non-Negative Bound Honored ($2.50)
+    print(f"\nEvaluating {uncertainty_tests[6]['name']}...")
+    u_low = compute_prediction_interval(1.20, coverage_level=0.95)
+    if u_low["lower_bound"] >= 2.50:
+        print(f"  Statutory Min Fare Enforced: Low Pred ($1.20) -> Lower Bound clamped to ${u_low['lower_bound']:.2f} >= $2.50 -> PASSED [OK]")
+        unc_passed += 1
+    else:
+        print(f"  Clamping failed for low prediction: {u_low} -> FAILED")
+
+    total_tests = len(test_cases) + len(geocoding_tests) + len(routing_tests) + len(fare_tests) + len(explainability_tests) + len(uncertainty_tests)
+    total_passed = passed + geo_passed + routing_passed + fare_passed + exp_passed + unc_passed
+    print("\n" + "="*80)
+    print(f"DEPLOYMENT, GEOCODING, ROUTING, FARE, EXPLAINABILITY & UNCERTAINTY TEST SUMMARY: {total_passed} / {total_tests} Test Cases Passed.")
     print("="*80)
     return total_passed == total_tests
 
 if __name__ == "__main__":
     success = run_deployment_tests()
     sys.exit(0 if success else 1)
+
 

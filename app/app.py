@@ -74,6 +74,7 @@ from trip_history import (
     get_distinct_models as th_distinct_models,
     run_database_tests as th_run_db_tests,
 )
+from uncertainty import compute_prediction_interval, create_uncertainty_badge_html
 
 logger = logging.getLogger(__name__)
 
@@ -82,6 +83,7 @@ try:
     initialize_database()
 except Exception as _db_init_err:
     logger.error("Trip history DB init failed: %s", _db_init_err)
+
 
 # Configure Page
 st.set_page_config(
@@ -1836,7 +1838,7 @@ ref_fare_res = calculate_meter_estimate(
 )
 ref_estimate = ref_fare_res["estimated_total"]
 fare_comp = compare_fares(pred_fare, ref_estimate)
-dnn_interval = get_dnn_prediction_interval(pred_fare)
+dnn_interval = compute_prediction_interval(pred_fare, coverage_level=0.95)
 
 # =============================================================================
 # REAL MODEL EXPLAINABILITY ENGINE (FEATURE #4)
@@ -1910,8 +1912,11 @@ st.markdown(f"""
         <div style="font-family: 'JetBrains Mono', monospace; font-size: 1.7rem; font-weight: 800; color: {'#10B981' if is_night_theme else '#16A34A'}; line-height: 1.1; margin-top: 0.15rem;">
             ${pred_fare:.2f}
         </div>
-        <div style="font-size: 0.68rem; color: {'#94A3B8' if is_night_theme else '#64748B'}; margin-bottom: 0.35rem;">
+        <div style="font-size: 0.68rem; color: {'#94A3B8' if is_night_theme else '#64748B'}; margin-bottom: 0.15rem;">
             PyTorch DNN (Huber)
+        </div>
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; color: {'#38BDF8' if is_night_theme else '#0284C7'}; margin-bottom: 0.35rem; font-weight: 600;">
+            📊 95% Interval: {dnn_interval.get('formatted', '$' + f'{pred_fare:.2f}')}
         </div>
         <div style="border-top: 1px solid {card_border}; padding-top: 0.3rem; display: flex; justify-content: flex-end; align-items: baseline; gap: 0.4rem;">
             <span style="font-size: 0.7rem; color: {'#94A3B8' if is_night_theme else '#64748B'}; font-weight: 600;">📜 Ref:</span>
@@ -2293,6 +2298,18 @@ with tab_main:
             </div>
         </div>
         """, unsafe_allow_html=True)
+
+        # Scientific Prediction Uncertainty Card (Feature #5)
+        if dnn_interval and dnn_interval.get("status") == "success":
+            st.markdown(create_uncertainty_badge_html(dnn_interval, is_night_theme=is_night_theme), unsafe_allow_html=True)
+            with st.expander("ℹ️ What does this prediction interval mean?", expanded=False):
+                st.markdown(f"""
+                - **Coverage Level:** **{dnn_interval.get('coverage_percent', '95%')}** marginal empirical coverage.
+                - **Methodology:** {dnn_interval.get('method')}.
+                - **Interpretation:** {dnn_interval.get('interpretation')}
+                - **Interval Bounds:** **${dnn_interval.get('lower_bound', 0.0):.2f}** (Lower) to **${dnn_interval.get('upper_bound', 0.0):.2f}** (Upper) | Total Width: **${dnn_interval.get('interval_width', 0.0):.2f}**.
+                - **Scientific Rigor:** Derived empirically from {dnn_interval.get('calibration_records', 14388):,} unseen validation trip residuals (RMSE = ${dnn_interval.get('rmse', 3.29):.2f}). The test set was left untouched to prevent data leakage.
+                """)
 
         # Real Model Explainability Card (Feature #4)
         if dnn_explanation and dnn_explanation.get("status") == "success":

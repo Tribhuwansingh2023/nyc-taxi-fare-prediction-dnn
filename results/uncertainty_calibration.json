@@ -1,0 +1,28 @@
+{
+    "dataset": "data/processed/val.csv",
+    "calibration_size": 14388,
+    "mean_absolute_error": 1.533,
+    "root_mean_squared_error": 3.2933,
+    "coverage_levels": {
+        "0.95": {
+            "level": 0.95,
+            "margin": 5.02,
+            "q_lower": -2.5,
+            "q_upper": 6.48
+        },
+        "0.90": {
+            "level": 0.9,
+            "margin": 3.25,
+            "q_lower": -1.77,
+            "q_upper": 4.64
+        },
+        "0.80": {
+            "level": 0.8,
+            "margin": 1.97,
+            "q_lower": -1.27,
+            "q_upper": 2.91
+        }
+    },
+    "method": "Split Conformal Prediction & Empirical Residual Quantiles",
+    "notes": "Calibrated on hold-out validation partition (14,388 records). Test partition remains untouched."
+}
