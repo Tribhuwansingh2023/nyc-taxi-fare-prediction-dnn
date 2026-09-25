@@ -92,7 +92,7 @@ print("Libraries imported successfully. PyTorch Version:", torch.__version__)"""
 
     # Cell 3: Dataset Loading
     add_md("""## 3. Dataset Understanding & Exploratory Data Analysis
-We load an authentic 100,000-record sample from the official Kaggle *New York City Taxi Fare Prediction* dataset. Each observation contains:
+We load an authentic 1,000,000-record sample from the massive 5.7 GB official Kaggle *New York City Taxi Fare Prediction* dataset. Each observation contains:
 - `key`: Unique trip identifier with timestamp
 - `fare_amount`: Continuous target variable (USD)
 - `pickup_datetime`: Trip departure timestamp in UTC
@@ -100,11 +100,12 @@ We load an authentic 100,000-record sample from the official Kaggle *New York Ci
 - `dropoff_longitude`, `dropoff_latitude`: Geodetic dropoff coordinates
 - `passenger_count`: Integer passenger count""")
 
-    add_code("""RAW_DATA_PATH = "../data/raw/train_sample_100k.csv"
+    add_code("""RAW_DATA_PATH = "../dataset/train.csv"
 if not os.path.exists(RAW_DATA_PATH):
-    RAW_DATA_PATH = "data/raw/train_sample_100k.csv"
+    RAW_DATA_PATH = "dataset/train.csv"
 
-df_raw = pd.read_csv(RAW_DATA_PATH)
+# We load 1,000,000 rows to prevent running out of memory!
+df_raw = pd.read_csv(RAW_DATA_PATH, nrows=1000000)
 print("Dataset Dimensions:", df_raw.shape)
 display(df_raw.head())
 display(df_raw.describe().T)""")
