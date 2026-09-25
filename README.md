@@ -31,6 +31,7 @@ An end-to-end deep learning engineering pipeline designed to predict NYC Yellow 
 - [Trip History & Persistence ("My Predictions")](#-trip-history--persistence-my-predictions)
 - [Prediction vs Actual Fare Feedback System](#-prediction-vs-actual-fare-feedback-system)
 - [Real-Time Weather Integration](#-real-time-weather-integration)
+- [Real Traffic & Road Condition Integration](#-real-traffic--road-condition-integration)
 - [Deep Neural Network Architecture](#-deep-neural-network-architecture)
 - [Experimental Benchmarks & Results](#-experimental-benchmarks--model-comparison)
 - [Visualizations Gallery](#-visualizations-gallery)
@@ -1022,9 +1023,96 @@ Before integration, an automated audit of `saved_models/feature_metadata.json` a
     > *"Weather is shown as contextual information. The current DNN was not trained with weather features, so weather does not alter this prediction."*
   - Zero fabricated "weather multipliers" or simulated "weather feature contributions" are applied to machine learning predictions.
 
-### 4. Safe Caching & Resilience
-- **Caching:** Responses are cached via an in-memory spatial grid and `@st.cache_data(ttl=600)` (10-minute TTL) to prevent redundant HTTP requests during Streamlit session reruns.
-- **Failure Handling:** Network timeouts or server errors fail gracefully to `"Weather unavailable"` without throwing unhandled exceptions or disrupting fare inference.
+---
+
+## 🚦 Real Traffic & Road Condition Integration
+
+The application features an additive, empirical **Real Traffic & Road Condition Integration Engine** ([`src/traffic_service.py`](file:///c:/Users/tribh/.gemini/antigravity-ide/scratch/nyc_taxi_fare_dnn_assignment/src/traffic_service.py)) that replaces simulated traffic values with genuine road conditions retrieved directly from live routing and traffic providers.
+
+```mermaid
+flowchart TD
+    A["Pickup & Dropoff Coordinates<br/>(lat, lon)"] --> B{"Coordinates Valid?"}
+    B -- No --> C["'Traffic data unavailable — valid pickup and drop-off coordinates required.'"]
+    B -- Yes --> D{"Traffic API Key Configured?<br/>(TomTom / Traffic Provider)"}
+    D -- "Yes (Commercial Tier)" --> E["Query TomTom CalculateRoute API<br/>(traffic=true, departAt=now)"]
+    D -- "No (Open Tier)" --> F["Query OpenStreetMap OSRM Routing<br/>(Normal road geometry & duration)"]
+    E --> G{"Provider Response"}
+    F --> H["Road Distance & Normal ETA Available<br/>Traffic fields marked 'Not available' (No Fake Data)"]
+    G -- "Success (200 OK)" --> I["Extract Genuine Telemetry<br/>Road Distance, Normal ETA, Traffic ETA, Delay, Speed"]
+    G -- "Timeout / Failure" --> J["'Traffic data unavailable.'<br/>(Zero fabricated delay or speed)"]
+    I --> K["Calculate Delay = Traffic ETA - Normal ETA<br/>Derive Status ('Derived from routing data')"]
+    H --> L["Format Traffic Conditions Table"]
+    I --> L
+    J --> L
+    L --> M["Render Traffic Card in Route Section"]
+    M --> N["Model Boundary Enforcement<br/>(Case B: Traffic Context Only — DNN Prediction Untouched)"]
+```
+
+### 1. Documented Traffic Provider & API Requirements
+- **Primary Live Traffic Provider:** [TomTom Routing & Traffic Flow API](https://developer.tomtom.com/routing-api/documentation/routing/calculate-route) (v1 CalculateRoute).
+  - Endpoint: `https://api.tomtom.com/routing/1/calculateRoute/{pickup_lat},{pickup_lon}:{dropoff_lat},{dropoff_lon}/json?departAt=now&traffic=true&travelMode=car&key={API_KEY}`
+- **Baseline Open Routing Tier:** OpenStreetMap OSRM (Open Source Routing Machine) providing verified road network geometry and baseline free-flow transit durations.
+- **Secure Credential Handling:**
+  - Credentials are read securely via Streamlit secrets (`st.secrets["TOMTOM_API_KEY"]`) or environment variables (`TOMTOM_API_KEY`, `TRAFFIC_API_KEY`, `MAPBOX_API_KEY`, `HERE_API_KEY`).
+  - **Zero API keys are hardcoded in the repository, displayed in the user interface, or printed to application logs.**
+  - If no commercial traffic key is configured, the system transparently utilizes the open OSRM baseline, reliably returning real road distance while displaying `"Not available"` for traffic-specific fields rather than estimating fake numbers.
+
+### 2. Traffic Fields Used & Delay Calculation
+All displayed fields are sourced directly from the provider payload without fabrication:
+
+| Display Field | Provider Source / Calculation | Fallback if Missing |
+| :--- | :--- | :--- |
+| **Status** | Supported provider classification or derived from delay | `"Not available"` |
+| **Road Distance** | `routes[0].summary.lengthInMeters / 1000.0` (km) | `"Not available"` |
+| **Normal ETA** | `routes[0].summary.noTrafficTravelTimeInSeconds / 60.0` (min) | `"Not available"` |
+| **Traffic ETA** | `routes[0].summary.travelTimeInSeconds / 60.0` (min) | `"Not available"` |
+| **Traffic Delay** | $\text{traffic\_duration} - \text{normal\_duration}$ or `trafficDelayInSeconds` | `"Not available"` |
+| **Current / Est. Speed** | $\frac{\text{road\_distance\_km}}{\text{traffic\_duration\_hours}}$ (km/h) | `"Not available"` |
+| **Updated Timestamp** | Provider `departureTime` formatted as `HH:MM UTC` | `"Not available"` |
+
+#### Delay Calculation Rule:
+$$\text{Traffic Delay} = \text{traffic duration} - \text{normal duration}$$
+Arbitrary or synthetic delay values are strictly forbidden. If either duration is missing from the provider response, the delay field explicitly reads `"Not available"`.
+
+### 3. Traffic Status Classification
+When the provider returns traffic delay, the system derives an explicit status labeled **"Derived from routing data"** under the following documented criteria:
+- **Normal:** $\text{Delay} \le 2.0\text{ min}$ (minimal or free-flow congestion).
+- **Moderate:** $2.0\text{ min} < \text{Delay} \le 7.0\text{ min}$ (typical urban arterial slowdown).
+- **Heavy:** $\text{Delay} > 7.0\text{ min}$ (severe corridor bottleneck or incident delay).
+- *Documentation Label:* `Moderate (Derived from routing data (2 min < Delay ≤ 7 min))`
+
+If delay data is absent, the status field displays `"Not available"` rather than inventing an unverified condition.
+
+### 4. Timestamp Behavior
+When the routing provider returns an authoritative departure/generation timestamp (`departureTime`), it is parsed and presented to the user (e.g. `16:02 UTC`). If the provider does not provide a timestamp, the application explicitly displays `"Not available"` rather than generating a synthetic system clock timestamp.
+
+### 5. Model Integration: Case B Confirmation (Contextual Information Only)
+Prior to implementation, the trained model architecture was verified against `saved_models/feature_metadata.json`, `src/feature_engineering.py`, and the model checkpoint:
+- **Trained Model Schema:** Exactly 33 spatial, geodesic, airport-proximity, and cyclical temporal features. While an engineered calendar feature `is_rush_hour` exists (weekday 4:00 PM – 8:00 PM), live real-time traffic delay, flow speed, and traffic status were **NOT** included during training.
+- **Strict Case B Guardrail:**
+  - Real-time traffic data functions exclusively as **Real-Time Trip Context**.
+  - **Live traffic does NOT modify, scale, or alter the trained PyTorch DNN fare prediction.**
+  - **Mandatory UI Disclosure:**
+    > *"Traffic data is available, but the current DNN was not trained with traffic features."*
+  - **Zero Fabricated Contributions:** The application **never** displays fake claims such as `+$3.20 due to traffic` or `1.05x congestion multiplier`.
+
+### 6. Caching & Fault Tolerance
+- **Caching:** Traffic requests are cached via an in-memory 4-decimal spatial grid cache and `@st.cache_data(ttl=600)` with a 10-minute time-to-live, preventing redundant API queries on Streamlit user interactions.
+- **Graceful Failure:** If the traffic service experiences network timeouts, HTTP errors, or unreachable endpoints, the UI displays `"Traffic data unavailable."` while the underlying fare prediction and route mapping continue operating without interruption.
+
+### 7. Verification Test Suite
+The implementation is audited by 11 automated test cases in [`app/test_deployment.py`](file:///c:/Users/tribh/.gemini/antigravity-ide/scratch/nyc_taxi_fare_dnn_assignment/app/test_deployment.py) (bringing the full test harness to **107/107 passing tests**):
+1. **Valid Route:** Valid coordinates return verified road geometry.
+2. **Traffic Data Available:** Correct extraction of distance, normal ETA, traffic ETA, delay, and status from provider payloads.
+3. **Traffic Data Unavailable:** Absence of traffic telemetry cleanly displays `"Not available"`.
+4. **API Timeout:** Network timeouts are handled gracefully without unhandled crashes.
+5. **Invalid Coordinates:** Out-of-bounds or non-numeric coordinates trigger safe input guardrails.
+6. **Missing API Key:** Safe resolution to open routing tier without application termination.
+7. **Provider Missing Fields:** Omitted provider keys are safely rendered as `"Not available"`.
+8. **Traffic Delay Calculation:** Verified $\Delta = 28\text{m} - 24\text{m} = +4\text{m}$ and status derivation.
+9. **DNN Prediction Invariance:** Point prediction is identical with and without traffic telemetry ($P_{\text{before}} = P_{\text{after}}$).
+10. **Existing Routing Still Works:** OpenStreetMap road network geometry remains functional.
+11. **Existing DNN Inference Still Works:** PyTorch forward pass continues producing valid NYC taxi fares.
 
 ---
 

@@ -98,6 +98,11 @@ from weather_service import (
     check_model_weather_support,
     parse_wmo_weather_code
 )
+from traffic_service import (
+    fetch_traffic_route,
+    format_traffic_conditions_table,
+    check_model_traffic_support
+)
 
 logger = logging.getLogger(__name__)
 
@@ -1270,6 +1275,15 @@ def get_live_osrm_route(p_lat, p_lon, d_lat, d_lon):
     """Backwards-compatible wrapper calling fetch_cached_road_route without fake multipliers."""
     return fetch_cached_road_route(p_lat, p_lon, d_lat, d_lon)
 
+@st.cache_data(ttl=600, show_spinner=False)
+def fetch_cached_traffic_route(p_lat: float, p_lon: float, d_lat: float, d_lon: float) -> dict:
+    """Cached wrapper for real-time traffic conditions and road routing."""
+    norm_p_lat = round(float(p_lat), 5)
+    norm_p_lon = round(float(p_lon), 5)
+    norm_d_lat = round(float(d_lat), 5)
+    norm_d_lon = round(float(d_lon), 5)
+    return fetch_traffic_route(norm_p_lat, norm_p_lon, norm_d_lat, norm_d_lon)
+
 @st.cache_data(ttl=3600)
 def search_nyc_address(query):
     """Geocodes any custom NYC landmark or street address via OpenStreetMap Nominatim."""
@@ -1936,6 +1950,8 @@ compass_str = compass_dirs[dir_idx]
 
 # Real-Time Road Routing and Fleet Radar Telemetry
 route_info = fetch_cached_road_route(p_lat, p_lon, d_lat, d_lon)
+traffic_info = fetch_cached_traffic_route(p_lat, p_lon, d_lat, d_lon)
+formatted_traffic = format_traffic_conditions_table(traffic_info)
 is_route_success = (route_info.get("status") == "success" and route_info.get("distance_km") is not None)
 road_dist_km = route_info.get("distance_km")
 road_dur_mins = route_info.get("duration_minutes")
@@ -2605,7 +2621,10 @@ with tab_main:
                 )
             else:
                 _weather_str = "Weather unavailable"
-            _traffic_str = "Rush Hour" if is_rush else ("Overnight" if is_night else "Standard")
+            if traffic_info.get("traffic_available"):
+                _traffic_str = f"{formatted_traffic['status']} ({formatted_traffic['delay']} delay)"
+            else:
+                _traffic_str = "Rush Hour (Calendar)" if is_rush else ("Overnight (Calendar)" if is_night else "Standard (Calendar)")
 
             _rid = th_insert(
                 pickup_address=disp_p_addr[:200] if disp_p_addr else None,
@@ -2790,6 +2809,67 @@ with tab_main:
         <div style="font-size: 0.85rem; color: {'#94A3B8' if is_night_theme else '#475569'}; background: {card_bg}; padding: 0.75rem 1rem; border-radius: 10px; border: 1px solid {card_border}; margin-top: 0.5rem; box-shadow: 0 2px 6px rgba(0,0,0,0.04);">
             🧭 <b>Azimuth Compass Heading:</b> <code>{bearing_deg:.1f}° ({compass_str})</code> &nbsp;|&nbsp; 
             🛫 <b>Hub Proximity:</b> JFK: <b>{feat_df['dropoff_JFK_dist'].iloc[0]:.1f}km</b> • LGA: <b>{feat_df['dropoff_LGA_dist'].iloc[0]:.1f}km</b> • EWR: <b>{feat_df['dropoff_EWR_dist'].iloc[0]:.1f}km</b>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # Real Traffic Conditions Telemetry (Feature #11)
+        st.markdown(f"""
+        <div style="background: {card_bg}; padding: 0.85rem 1.15rem; border-radius: 12px; border: 1px solid {card_border}; margin-top: 0.6rem; box-shadow: 0 4px 12px rgba(0,0,0,0.04);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; border-bottom: 1px solid {card_border}; padding-bottom: 0.35rem;">
+                <span style="font-weight: 800; font-size: 0.88rem; letter-spacing: 0.05em; color: {'#38BDF8' if is_night_theme else '#0284C7'};">
+                    🚦 TRAFFIC CONDITIONS
+                </span>
+                <span style="font-size: 0.72rem; color: {'#94A3B8' if is_night_theme else '#64748B'};">
+                    Provider: <b>{traffic_info.get('provider', 'Routing Service')}</b>
+                </span>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.55rem; font-size: 0.82rem; margin-bottom: 0.5rem;">
+                <div>
+                    <div style="color: {'#94A3B8' if is_night_theme else '#64748B'}; font-size: 0.7rem;">Status</div>
+                    <div style="font-weight: 700; color: {'#10B981' if 'Normal' in formatted_traffic['status'] else ('#F59E0B' if 'Moderate' in formatted_traffic['status'] else ('#EF4444' if 'Heavy' in formatted_traffic['status'] else card_text))};">
+                        {formatted_traffic['status']}
+                    </div>
+                </div>
+                <div>
+                    <div style="color: {'#94A3B8' if is_night_theme else '#64748B'}; font-size: 0.7rem;">Road Distance</div>
+                    <div style="font-weight: 700; color: {card_text}; font-family: 'JetBrains Mono';">
+                        {formatted_traffic['road_distance']}
+                    </div>
+                </div>
+                <div>
+                    <div style="color: {'#94A3B8' if is_night_theme else '#64748B'}; font-size: 0.7rem;">Current / Est. Speed</div>
+                    <div style="font-weight: 700; color: {card_text}; font-family: 'JetBrains Mono';">
+                        {formatted_traffic['speed']}
+                    </div>
+                </div>
+                <div>
+                    <div style="color: {'#94A3B8' if is_night_theme else '#64748B'}; font-size: 0.7rem;">Normal ETA</div>
+                    <div style="font-weight: 700; color: {card_text}; font-family: 'JetBrains Mono';">
+                        {formatted_traffic['normal_eta']}
+                    </div>
+                </div>
+                <div>
+                    <div style="color: {'#94A3B8' if is_night_theme else '#64748B'}; font-size: 0.7rem;">Traffic ETA</div>
+                    <div style="font-weight: 700; color: {card_text}; font-family: 'JetBrains Mono';">
+                        {formatted_traffic['traffic_eta']}
+                    </div>
+                </div>
+                <div>
+                    <div style="color: {'#94A3B8' if is_night_theme else '#64748B'}; font-size: 0.7rem;">Estimated Delay</div>
+                    <div style="font-weight: 700; color: {'#10B981' if '0 min' in formatted_traffic['delay'] or 'No delay' in formatted_traffic['delay'] else ('#F59E0B' if '+' in formatted_traffic['delay'] else card_text)}; font-family: 'JetBrains Mono';">
+                        {formatted_traffic['delay']}
+                    </div>
+                </div>
+            </div>
+            
+            <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px dashed {card_border}; padding-top: 0.35rem; font-size: 0.72rem; color: {'#94A3B8' if is_night_theme else '#64748B'};">
+                <span>🕒 Updated: <b>{formatted_traffic['updated']}</b></span>
+                <span>🧠 <b>MODEL IMPACT:</b> {formatted_traffic['model_impact']}</span>
+            </div>
+            <div style="margin-top: 0.3rem; font-size: 0.71rem; color: {'#94A3B8' if is_night_theme else '#64748B'};">
+                ℹ️ {formatted_traffic['explanation']}
+            </div>
         </div>
         """, unsafe_allow_html=True)
 
