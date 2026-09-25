@@ -30,6 +30,7 @@ An end-to-end deep learning engineering pipeline designed to predict NYC Yellow 
 - [Prediction Uncertainty](#-prediction-uncertainty)
 - [Trip History & Persistence ("My Predictions")](#-trip-history--persistence-my-predictions)
 - [Prediction vs Actual Fare Feedback System](#-prediction-vs-actual-fare-feedback-system)
+- [Real-Time Weather Integration](#-real-time-weather-integration)
 - [Deep Neural Network Architecture](#-deep-neural-network-architecture)
 - [Experimental Benchmarks & Results](#-experimental-benchmarks--model-comparison)
 - [Visualizations Gallery](#-visualizations-gallery)
@@ -975,6 +976,55 @@ The system strictly differentiates between:
 
 - **Zero Silent Retraining:** Production neural network weights, layers, scalers, and checkpoints are **never** modified or retrained automatically upon receiving user feedback.
 - **Controlled Dataset Export:** Provides an **"Export Feedback Dataset (CSV)"** utility allowing data scientists to inspect, clean, and validate empirical feedback offline before conducting any planned model updates.
+
+---
+
+## 🌦️ Real-Time Weather Integration
+
+The application features a real-time, empirical meteorological integration engine ([`src/weather_service.py`](file:///c:/Users/tribh/.gemini/antigravity-ide/scratch/nyc_taxi_fare_dnn_assignment/src/weather_service.py)) that provides live and historical environmental observations for ride pickups across Greater New York City.
+
+```mermaid
+flowchart TD
+    A["Trip Pickup Coordinates<br/>(lat, lon)"] --> B{"Location Available?"}
+    B -- No --> C["'Weather unavailable — pickup location required.'"]
+    B -- Yes --> D{"Trip Date Check"}
+    D -- "Current / Future" --> E["Open-Meteo Forecast API<br/>(/v1/forecast)"]
+    D -- "Past Calendar Day" --> F["Open-Meteo Historical Archive API<br/>(/v1/archive)"]
+    E --> G{"API Status"}
+    F --> G
+    G -- "Failure / Timeout" --> H["'Weather unavailable' / 'Historical weather unavailable.'<br/>(No fabricated dummy data)"]
+    G -- "Success (200 OK)" --> I["Real Telemetry Record<br/>Temp °C/°F, Wind, Humidity, Precip, WMO Code"]
+    I --> J["Render Real-Time Weather Context"]
+    J --> K["Model Boundary Enforcement<br/>(Case B: Weather Context Only — DNN Prediction Untouched)"]
+```
+
+### 1. Documented Weather API Provider
+- **Provider:** [Open-Meteo](https://open-meteo.com/) (Open-source, free, WMO-compliant meteorological service).
+- **Current Weather Endpoint:** `https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current=temperature_2m,relative_humidity_2m,precipitation,weather_code,wind_speed_10m`
+- **Historical Archive Endpoint:** `https://archive-api.open-meteo.com/v1/archive?latitude={lat}&longitude={lon}&start_date={YYYY-MM-DD}&end_date={YYYY-MM-DD}&hourly=temperature_2m,relative_humidity_2m,precipitation,weather_code,wind_speed_10m`
+- **Credential Storage:** Open-Meteo provides free public tier access without requiring mandatory keys. For commercial tier deployments, credentials are read securely via `st.secrets["OPEN_METEO_API_KEY"]` or the `OPEN_METEO_API_KEY` / `WEATHER_API_KEY` environment variables. **Zero API keys are hardcoded in the codebase.**
+
+### 2. Location & Time Accuracy
+- **Pickup-Targeted Telemetry:** Weather is fetched exclusively for the user's actual pickup coordinates (rounded to 4 decimal places, ~11 meters resolution) rather than an arbitrary city center point.
+- **Location Guardrail:** If pickup coordinates are missing or invalid, the system displays:  
+  `"Weather unavailable — pickup location required."`
+- **Historical Trip Weather:** When inspecting past rides, the system queries the Open-Meteo Historical Archive matching the specific trip date and hour. Current weather is **never** substituted for historical trips. If historical data is missing or queries future dates, the system cleanly displays:  
+  `"Historical weather unavailable."`
+
+### 3. Model Architecture Boundary (Case B: Weather Context Only)
+Before integration, an automated audit of `saved_models/feature_metadata.json` and `src/feature_engineering.py` verified:
+- **Trained Model Schema:** 33 features (geodesic distance vectors, regional airport coordinates, cyclical temporal components, occupancy).
+- **Result:** Weather variables are **NOT** part of the trained neural network schema.
+- **Enforcement:** The application strictly enforces **Case B**:
+  - Weather observations are presented purely as **Real-Time Weather Context**.
+  - **The PyTorch DNN prediction is completely untouched and unaltered by weather telemetry.**
+  - **Mandatory Disclosure:**  
+    > *"Weather is shown as contextual information. The current DNN was not trained with weather features, so weather does not alter this prediction."*
+  - Zero fabricated "weather multipliers" or simulated "weather feature contributions" are applied to machine learning predictions.
+
+### 4. Safe Caching & Resilience
+- **Caching:** Responses are cached via an in-memory spatial grid and `@st.cache_data(ttl=600)` (10-minute TTL) to prevent redundant HTTP requests during Streamlit session reruns.
+- **Failure Handling:** Network timeouts or server errors fail gracefully to `"Weather unavailable"` without throwing unhandled exceptions or disrupting fare inference.
 
 ---
 

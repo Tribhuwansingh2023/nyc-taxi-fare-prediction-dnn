@@ -92,6 +92,12 @@ from model_monitoring import (
     create_latency_breakdown_chart,
     SLA_THRESHOLDS
 )
+from weather_service import (
+    get_current_weather,
+    get_historical_weather,
+    check_model_weather_support,
+    parse_wmo_weather_code
+)
 
 logger = logging.getLogger(__name__)
 
@@ -1212,34 +1218,41 @@ def get_live_nyc_time():
     nyc_tz = datetime.timezone(datetime.timedelta(hours=offset_hours))
     return now_utc.astimezone(nyc_tz)
 
-@st.cache_data(ttl=300)
-def get_live_nyc_weather():
-    """Fetches live meteorological telemetry for New York City via Open-Meteo."""
-    try:
-        url = "https://api.open-meteo.com/v1/forecast?latitude=40.7128&longitude=-74.0060&current_weather=true"
-        r = requests.get(url, timeout=2.5)
-        if r.status_code == 200:
-            data = r.json().get("current_weather", {})
-            temp_c = data.get("temperature", 15.0)
-            temp_f = round(temp_c * 9/5 + 32, 1)
-            wcode = data.get("weathercode", 0)
-            wind = data.get("windspeed", 10.0)
-            if wcode in [0, 1]:
-                desc, mult, icon = "Clear Skies / Sunny", 1.00, "☀️"
-            elif wcode in [2, 3]:
-                desc, mult, icon = "Partly Cloudy / Overcast", 1.05, "⛅"
-            elif wcode in [51, 53, 55, 61, 63, 65, 80, 81]:
-                desc, mult, icon = "Light / Moderate Rain", 1.15, "🌧️"
-            elif wcode in [65, 82, 95, 96, 99]:
-                desc, mult, icon = "Heavy Rain / Thunderstorm", 1.25, "⛈️"
-            elif wcode in [71, 73, 75, 77, 85, 86]:
-                desc, mult, icon = "Snow / Sleet / Freezing", 1.35, "❄️"
-            else:
-                desc, mult, icon = "Normal Conditions", 1.00, "🌤️"
-            return {"temp_c": temp_c, "temp_f": temp_f, "desc": desc, "mult": mult, "wind": wind, "icon": icon, "status": "LIVE"}
-    except Exception:
-        pass
-    return {"temp_c": 16.0, "temp_f": 60.8, "desc": "Standard NYC Conditions", "mult": 1.00, "wind": 12.0, "icon": "🌤️", "status": "DEFAULT"}
+@st.cache_data(ttl=600, show_spinner=False)
+def get_live_nyc_weather(latitude: Optional[float] = 40.7128, longitude: Optional[float] = -74.0060, trip_dt: Optional[str] = None) -> dict:
+    """Fetches genuine meteorological telemetry via Open-Meteo Weather API for specified coordinates."""
+    if trip_dt:
+        res = get_historical_weather(latitude, longitude, trip_dt)
+    else:
+        res = get_current_weather(latitude, longitude)
+    
+    if res.get("available"):
+        return {
+            "temp_c": res.get("temperature_c", 0.0),
+            "temp_f": res.get("temperature_f", 0.0),
+            "desc": res.get("condition", "Clear"),
+            "wind": res.get("wind_speed_kmh", 0.0),
+            "humidity": res.get("humidity_pct", 0.0),
+            "precip": res.get("precipitation_mm", 0.0),
+            "icon": res.get("condition_icon", "🌤️"),
+            "status": "LIVE",
+            "provider": res.get("provider", "Open-Meteo"),
+            "available": True,
+            "raw": res
+        }
+    return {
+        "temp_c": None,
+        "temp_f": None,
+        "desc": res.get("error", "Weather unavailable"),
+        "wind": None,
+        "humidity": None,
+        "precip": None,
+        "icon": "⚠️",
+        "status": "UNAVAILABLE",
+        "provider": "Open-Meteo",
+        "available": False,
+        "raw": res
+    }
 
 @st.cache_data(ttl=1800, show_spinner=False)
 def fetch_cached_road_route(p_lat: float, p_lon: float, d_lat: float, d_lon: float) -> dict:
@@ -1368,10 +1381,11 @@ st.markdown(f"""
 # Live Telemetry Ribbon
 live_weather = get_live_nyc_weather()
 live_nyc_now = get_live_nyc_time()
+w_ribbon_str = f"{live_weather['icon']} Weather: <b>{live_weather['temp_c']}°C ({live_weather['desc']})</b>" if live_weather.get("available") else f"⚠️ Weather: <b>{live_weather.get('desc', 'Unavailable')}</b>"
 
 st.markdown(f"""
 <div class="telemetry-strip">
-    <div><span class="pulse-dot"></span><b>REAL-TIME INFERENCE ENGINE</b> &nbsp;|&nbsp; 🕒 NYC: <b>{live_nyc_now.strftime('%I:%M %p EDT, %A')}</b> &nbsp;|&nbsp; {live_weather['icon']} Weather: <b>{live_weather['temp_c']}°C ({live_weather['desc']})</b></div>
+    <div><span class="pulse-dot"></span><b>REAL-TIME INFERENCE ENGINE</b> &nbsp;|&nbsp; 🕒 NYC: <b>{live_nyc_now.strftime('%I:%M %p EDT, %A')}</b> &nbsp;|&nbsp; {w_ribbon_str}</div>
     <div>Hardware: <b>CPU / AVX2 Inlined</b> &nbsp;|&nbsp; Latency: <b>~1.4 ms</b> &nbsp;|&nbsp; Display: <b>{'🌙 Night' if is_night_theme else '☀️ Day'}</b> &nbsp;|&nbsp; Rate: <b>NYC TLC 2025</b></div>
 </div>
 """, unsafe_allow_html=True)
@@ -1665,32 +1679,81 @@ passengers = st.sidebar.slider("Occupancy (Passengers)", min_value=1, max_value=
 st.session_state["passengers"] = passengers
 
 st.sidebar.markdown("---")
-st.sidebar.markdown("#### 4. Weather & Congestion Telemetry")
+st.sidebar.markdown("#### 4. Real-Time Weather Context (Open-Meteo)")
 
-live_weather_sync = st.sidebar.toggle("🌦️ Live NYC Weather Sync (Open-Meteo)", value=st.session_state["live_weather_sync"], key="tgl_live_weather", help="Automatically fetch real-time temperature, wind, and precipitation in NYC to adjust pricing.")
+# Model weather support inspection (Case B enforcement)
+model_w_meta = check_model_weather_support()
+
+# Query real weather at actual pickup location
+sb_p_lat = st.session_state.get("p_lat")
+sb_p_lon = st.session_state.get("p_lon")
+sb_trip_dt = datetime.datetime.combine(trip_date, trip_time)
+sb_is_historical = trip_date < datetime.date.today()
+
+live_weather_sync = st.sidebar.toggle(
+    "🌦️ Real-Time Weather Context (Open-Meteo)",
+    value=st.session_state.get("live_weather_sync", True),
+    key="tgl_live_weather",
+    help="Fetches live or historical meteorological observations at the pickup coordinates using Open-Meteo API."
+)
 st.session_state["live_weather_sync"] = live_weather_sync
 
-if live_weather_sync:
-    weather_mult = live_weather["mult"]
-    st.sidebar.markdown(f"""
-    <div style="background: {'rgba(15, 23, 42, 0.65)' if is_night_theme else '#F8FAFC'}; padding: 0.65rem 0.85rem; border-radius: 10px; border: 1px solid {'rgba(255,255,255,0.08)' if is_night_theme else '#CBD5E1'}; font-size: 0.8rem; margin-top: 0.3rem;">
-        <div>{live_weather['icon']} <b>Condition:</b> {live_weather['desc']}</div>
-        <div style="margin-top: 0.2rem;">🌡️ <b>Temp:</b> {live_weather['temp_c']}°C ({live_weather['temp_f']}°F) &nbsp;|&nbsp; 💨 <b>Wind:</b> {live_weather['wind']} km/h</div>
-        <div style="margin-top: 0.2rem; color: {'#38BDF8' if is_night_theme else '#0284C7'}; font-weight: 700;">⚡ Live Pricing Factor: {weather_mult:.2f}x</div>
-    </div>
-    """, unsafe_allow_html=True)
+# Fetch genuine weather
+if sb_p_lat is None or sb_p_lon is None:
+    trip_weather = {
+        "status": "UNAVAILABLE",
+        "available": False,
+        "error": "Weather unavailable — pickup location required.",
+        "message": "Weather unavailable — pickup location required."
+    }
+elif sb_is_historical:
+    trip_weather = get_historical_weather(sb_p_lat, sb_p_lon, sb_trip_dt)
 else:
-    weather_condition = st.sidebar.select_slider(
-        "Simulate Weather / Road Traffic",
-        options=["Clear Skies (1.0x)", "Light Rain (+10%)", "Heavy Downpour (+25%)", "Blizzard / Gridlock (+40%)"],
-        value="Clear Skies (1.0x)"
-    )
-    weather_mult = {
-        "Clear Skies (1.0x)": 1.0,
-        "Light Rain (+10%)": 1.10,
-        "Heavy Downpour (+25%)": 1.25,
-        "Blizzard / Gridlock (+40%)": 1.40
-    }[weather_condition]
+    trip_weather = get_current_weather(sb_p_lat, sb_p_lon)
+
+if live_weather_sync:
+    if trip_weather.get("available"):
+        hdr_title = "HISTORICAL WEATHER" if trip_weather.get("is_historical") else "CURRENT WEATHER"
+        st.sidebar.markdown(f"""
+        <div style="background: {'rgba(15, 23, 42, 0.65)' if is_night_theme else '#F8FAFC'}; padding: 0.75rem 0.95rem; border-radius: 10px; border: 1px solid {'rgba(255,255,255,0.08)' if is_night_theme else '#CBD5E1'}; font-size: 0.8rem; margin-top: 0.3rem;">
+            <div style="font-weight: 800; letter-spacing: 0.05em; color: {'#38BDF8' if is_night_theme else '#0284C7'}; margin-bottom: 0.4rem;">
+                {trip_weather['condition_icon']} {hdr_title}
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 0.2rem;">
+                <span style="color: {'#94A3B8' if is_night_theme else '#64748B'};">Condition:</span> <b>{trip_weather['condition']}</b>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 0.2rem;">
+                <span style="color: {'#94A3B8' if is_night_theme else '#64748B'};">Temperature:</span> <b>{trip_weather['temperature_c']}°C ({trip_weather['temperature_f']}°F)</b>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 0.2rem;">
+                <span style="color: {'#94A3B8' if is_night_theme else '#64748B'};">Wind Speed:</span> <b>{trip_weather['wind_speed_kmh']} km/h</b>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 0.2rem;">
+                <span style="color: {'#94A3B8' if is_night_theme else '#64748B'};">Humidity:</span> <b>{trip_weather['humidity_pct']}%</b>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 0.3rem;">
+                <span style="color: {'#94A3B8' if is_night_theme else '#64748B'};">Precipitation:</span> <b>{trip_weather['precipitation_mm']} mm</b>
+            </div>
+            <div style="font-size: 0.71rem; color: {'#64748B' if is_night_theme else '#94A3B8'}; border-top: 1px dashed {'rgba(255,255,255,0.08)' if is_night_theme else '#E2E8F0'}; padding-top: 0.35rem; margin-top: 0.2rem;">
+                📍 <i>Pickup ({trip_weather['latitude']:.4f}, {trip_weather['longitude']:.4f}) via {trip_weather['provider']}</i>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+    else:
+        err_msg = trip_weather.get("error", "Weather unavailable")
+        st.sidebar.markdown(f"""
+        <div style="background: {'rgba(239, 68, 68, 0.1)' if is_night_theme else '#FEE2E2'}; border: 1px solid {'rgba(239, 68, 68, 0.3)' if is_night_theme else '#FCA5A5'}; border-radius: 8px; padding: 0.6rem 0.8rem; font-size: 0.78rem; color: {'#FCA5A5' if is_night_theme else '#B91C1C'}; margin-top: 0.3rem;">
+            ⚠️ <b>{err_msg}</b>
+        </div>
+        """, unsafe_allow_html=True)
+
+    # Mandatory model architecture boundary explanation
+    st.sidebar.caption(f"ℹ️ {model_w_meta['explanation']}")
+else:
+    st.sidebar.info("Weather synchronization paused.")
+    st.sidebar.caption(f"ℹ️ {model_w_meta['explanation']}")
+
+weather_mult = 1.0
 
 # Compute initial baseline temporal flags for defaults
 curr_hour = trip_time.hour
@@ -1770,10 +1833,10 @@ layer_activations = {}
 dnn_infer_ms = 0.0
 
 if toggle_jfk_flat:
-    pred_fare = max(2.50, round(70.00 * weather_mult, 2))
-    lgb_pred = max(2.50, round(70.00 * weather_mult, 2))
-    lr_pred = max(2.50, round(70.00 * weather_mult, 2))
-    est_rule_fare = max(2.50, round(70.00 * weather_mult, 2))
+    pred_fare = 70.00
+    lgb_pred = 70.00
+    lr_pred = 70.00
+    est_rule_fare = 70.00
     if scaler is not None and dnn_model is not None:
         X_input = feat_df[FEATURE_COLS].values
         X_scaled = scaler.transform(X_input)
@@ -1812,16 +1875,16 @@ else:
             layer_activations["L3_active_pct"] = float(torch.sum(x3 > 0).item() / x3.numel() * 100)
         dnn_infer_ms = (time.perf_counter() - t_model_start) * 1000
             
-        pred_fare = max(2.50, round(raw_pred * weather_mult, 2))
+        pred_fare = max(2.50, round(raw_pred, 2))
         
         if "LightGBM" in baselines:
-            lgb_pred = max(2.50, round(float(baselines["LightGBM"].predict(X_scaled)[0]) * weather_mult, 2))
+            lgb_pred = max(2.50, round(float(baselines["LightGBM"].predict(X_scaled)[0]), 2))
         if "Linear Regression" in baselines:
-            lr_pred = max(2.50, round(float(baselines["Linear Regression"].predict(X_scaled)[0]) * weather_mult, 2))
+            lr_pred = max(2.50, round(float(baselines["Linear Regression"].predict(X_scaled)[0]), 2))
 
     # NYC TLC Official Standard Regulatory Meter Rule
     est_rule_fare = 2.50 + (distance_km * 1.56) + (1.00 if is_rush else 0) + (0.50 if is_night else 0) + 0.50 + 0.30
-    est_rule_fare = max(2.50, round(est_rule_fare * weather_mult, 2))
+    est_rule_fare = max(2.50, round(est_rule_fare, 2))
 
 # Dynamic taximeter display fare (with optional gratuity)
 meter_display_fare = round(pred_fare * 1.18, 2) if toggle_tip else pred_fare
@@ -2156,21 +2219,18 @@ with m_cols[1]:
     """, unsafe_allow_html=True)
 
 with m_cols[2]:
-    if is_rush:
-        surch_badge = '<span class="status-led led-red"></span>Rush Hour Active (+$1.00)'
-        surch_sub = 'Peak: Weekdays 4-8 PM / 7-10 AM'
-    elif is_night:
-        surch_badge = '<span class="status-led led-amber"></span>Night Tariff Active (+$0.50)'
-        surch_sub = 'Overnight: 8:00 PM – 6:00 AM'
+    if trip_weather.get("available"):
+        w_card_badge = f"{trip_weather['condition_icon']} {trip_weather['temperature_c']}°C • {trip_weather['condition']}"
+        w_card_sub = f"💨 {trip_weather['wind_speed_kmh']} km/h • 💧 {trip_weather['humidity_pct']}% • 🌧️ {trip_weather['precipitation_mm']}mm"
     else:
-        surch_badge = '<span class="status-led led-green"></span>Standard Tariff Active'
-        surch_sub = 'No peak congestion charges'
-        
+        w_card_badge = '<span class="status-led led-amber"></span>Weather Unavailable'
+        w_card_sub = trip_weather.get("error", "Pickup coordinates required")
+
     st.markdown(f"""
     <div class="glass-card">
-        <div class="metric-label">Congestion & Weather Multiplier</div>
-        <div style="font-size: 1.15rem; font-weight: 700; color: {'#F1F5F9' if is_night_theme else '#0F172A'}; margin: 0.3rem 0;">{surch_badge}</div>
-        <div class="metric-sub">{surch_sub} • {live_weather['icon']} {weather_mult:.2f}x</div>
+        <div class="metric-label">Weather Context (Open-Meteo)</div>
+        <div style="font-size: 1.05rem; font-weight: 700; color: {'#F1F5F9' if is_night_theme else '#0F172A'}; margin: 0.3rem 0;">{w_card_badge}</div>
+        <div class="metric-sub">{w_card_sub}</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -2482,6 +2542,7 @@ with tab_main:
                     - **Model Attribution vs. Causation:** These are model attributions, not causal relationships. They describe the mathematical behavior of the trained PyTorch neural network rather than asserting real-world causality.
                     - **Axiomatic Completeness:** Integrated Gradients satisfies the completeness axiom $\\sum_{i=1}^{33} \\text{Attribution}_i = F(x) - F(x_{\\text{baseline}})$. Every dollar above or below the baseline fare is strictly accounted for by the 33 features.
                     - **Positive vs. Negative Contributions:** A positive contribution pushed the fare higher than an average trip (e.g., long distance, airport travel, rush hour). A negative contribution pulled the fare lower (e.g., short distance, off-peak timing).
+                    - **Weather Feature Contribution:** Weather is shown as contextual information. The current DNN was not trained with weather features, so weather does not alter this prediction.
                     """)
         elif dnn_explanation and dnn_explanation.get("status") == "unavailable":
             st.info("ℹ️ Prediction explanation is currently unavailable for this model.")
@@ -2536,7 +2597,14 @@ with tab_main:
             help="Persist this prediction to the local Trip History database for later review and feedback."
         ):
             _pickup_dt_str = pickup_dt.isoformat() if pickup_dt else None
-            _weather_str = f"{live_weather.get('icon','?')} {live_weather.get('desc','Unknown')} ({live_weather.get('temp_c',0):.1f}°C, {live_weather.get('wind',0):.1f} km/h wind)"
+            if trip_weather.get("available"):
+                _weather_str = (
+                    f"{trip_weather.get('condition_icon','🌤️')} {trip_weather.get('condition','Clear')} "
+                    f"({trip_weather.get('temperature_c',0.0):.1f}°C, {trip_weather.get('wind_speed_kmh',0.0):.1f} km/h wind, "
+                    f"{trip_weather.get('humidity_pct',0.0):.0f}% hum, {trip_weather.get('precipitation_mm',0.0):.1f}mm rain)"
+                )
+            else:
+                _weather_str = "Weather unavailable"
             _traffic_str = "Rush Hour" if is_rush else ("Overnight" if is_night else "Standard")
 
             _rid = th_insert(
