@@ -955,10 +955,29 @@ def run_deployment_tests():
     else:
         print(f"  DNN prediction shifted: {final_test_fare} vs {dnn_live_fare} -> FAILED")
 
-    total_tests = len(test_cases) + len(geocoding_tests) + len(routing_tests) + len(fare_tests) + len(explainability_tests) + len(uncertainty_tests) + len(model_comp_tests) + len(monitoring_tests)
-    total_passed = passed + geo_passed + routing_passed + fare_passed + exp_passed + unc_passed + mcomp_passed + mon_passed
+    from trip_history import run_database_tests as th_run_db_tests
+
     print("\n" + "="*80)
-    print(f"DEPLOYMENT, GEOCODING, ROUTING, FARE, EXPLAINABILITY, UNCERTAINTY, MULTI-MODEL & MONITORING SUMMARY: {total_passed} / {total_tests} Test Cases Passed.")
+    print("RUNNING FEATURE #8: REAL TRIP HISTORY DATABASE & PERSISTENCE TESTS")
+    print("="*80)
+
+    db_test_results = th_run_db_tests()
+    history_passed = 0
+    for t_res in db_test_results:
+        print(f"\nEvaluating {t_res['name']}...")
+        if t_res["status"] == "PASS":
+            print(f"  {t_res['name']}: {t_res.get('message', 'Success')} -> PASSED [OK]")
+            history_passed += 1
+        else:
+            print(f"  {t_res['name']} failed: {t_res.get('message', '')} -> FAILED")
+
+    total_tests = (len(test_cases) + len(geocoding_tests) + len(routing_tests) + 
+                   len(fare_tests) + len(explainability_tests) + len(uncertainty_tests) + 
+                   len(model_comp_tests) + len(monitoring_tests) + len(db_test_results))
+    total_passed = (passed + geo_passed + routing_passed + fare_passed + 
+                    exp_passed + unc_passed + mcomp_passed + mon_passed + history_passed)
+    print("\n" + "="*80)
+    print(f"DEPLOYMENT, GEOCODING, ROUTING, FARE, EXPLAINABILITY, UNCERTAINTY, MULTI-MODEL, MONITORING & TRIP HISTORY SUMMARY: {total_passed} / {total_tests} Test Cases Passed.")
     print("="*80)
     return total_passed == total_tests
 

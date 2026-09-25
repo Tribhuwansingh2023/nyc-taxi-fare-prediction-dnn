@@ -422,7 +422,10 @@ def run_database_tests() -> List[Dict[str, Any]]:
     Returns list of {name, status, message} dicts.
     """
     import tempfile
-    import src.trip_history as _th
+    try:
+        import src.trip_history as _th
+    except ModuleNotFoundError:
+        import trip_history as _th
 
     results = []
 

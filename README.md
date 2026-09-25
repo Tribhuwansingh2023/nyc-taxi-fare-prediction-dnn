@@ -855,7 +855,69 @@ Rather than calculating generic synthetic drift scores, the system compares live
 
 ---
 
+## 📚 Trip History & Persistence ("My Predictions")
+
+The application provides a fully persistent, local database layer ([`src/trip_history.py`](file:///c:/Users/tribh/.gemini/antigravity-ide/scratch/nyc_taxi_fare_dnn_assignment/src/trip_history.py)) and dedicated interactive management studio (`📚 Trip History` tab in [`app/app.py`](file:///c:/Users/tribh/.gemini/antigravity-ide/scratch/nyc_taxi_fare_dnn_assignment/app/app.py)) enabling users to record, inspect, filter, search, export, and benchmark trip predictions.
+
+### Architecture & Database Schema
+
+Trip records are managed inside an embedded **SQLite** database (`trip_history.db`) using strict parameterized queries, WAL journal mode, and schema migrations:
+
+```sql
+CREATE TABLE IF NOT EXISTS trip_predictions (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    created_at          TEXT    NOT NULL,
+    user_id             TEXT    DEFAULT NULL,
+    pickup_address      TEXT    DEFAULT NULL,
+    dropoff_address     TEXT    DEFAULT NULL,
+    pickup_latitude     REAL    NOT NULL,
+    pickup_longitude    REAL    NOT NULL,
+    dropoff_latitude    REAL    NOT NULL,
+    dropoff_longitude   REAL    NOT NULL,
+    distance_km         REAL    DEFAULT NULL,
+    road_distance_km    REAL    DEFAULT NULL,
+    estimated_duration  REAL    DEFAULT NULL,
+    passenger_count     INTEGER DEFAULT 1,
+    pickup_datetime     TEXT    DEFAULT NULL,
+    predicted_fare      REAL    NOT NULL,
+    model_name          TEXT    DEFAULT 'TaxiFareDNN',
+    model_version       TEXT    DEFAULT '1.0',
+    actual_fare         REAL    DEFAULT NULL,
+    absolute_error      REAL    DEFAULT NULL,
+    relative_error      REAL    DEFAULT NULL,
+    weather_summary     TEXT    DEFAULT NULL,
+    traffic_summary     TEXT    DEFAULT NULL,
+    save_hash           TEXT    DEFAULT NULL
+);
+```
+
+### Core Features
+
+1. **Explicit 1-Click Save with Duplicate Protection:**
+   - After running an inference, the user clicks **"📚 Save to Trip History"**.
+   - A deterministic SHA-256 `save_hash` computed over coordinates, timestamp, occupancy, and predicted fare prevents duplicate database records during Streamlit reruns.
+2. **Full-Database Search & Multi-Criteria Filtering:**
+   - **Search:** Case-insensitive substring matching against `pickup_address` and `dropoff_address` executed directly at the SQL layer (`WHERE pickup_address LIKE ?`).
+   - **Filters:** Date range (`date_from`, `date_to`), model architecture (`TaxiFareDNN`, `LightGBM`, etc.), actual fare availability (`Has actual` vs `No actual`), and minimum fare threshold.
+   - **Sorting:** Flexible SQL ordering (`created_at_desc`, `created_at_asc`, `predicted_fare_desc`, `predicted_fare_asc`, `absolute_error_desc`).
+3. **Actual Fare Feedback & Error Computation:**
+   - Users can update any recorded trip with its real-world cleared fare.
+   - Automatically computes:
+     $$\text{Absolute Error} = |\text{Actual Fare} - \text{Predicted Fare}|$$
+     $$\text{Relative Error} = \frac{|\text{Actual Fare} - \text{Predicted Fare}|}{\text{Actual Fare}} \times 100\%$$
+   - Original predictions and timestamps remain strictly immutable.
+4. **CSV Dataset Export:**
+   - One-click export via **"Export CSV"** converts the currently filtered database rows into a standard UTF-8 CSV (`trip_history_YYYY-MM-DD.csv`).
+5. **Two-Step Delete Confirmation:**
+   - Safely remove individual trips with interactive confirmation dialogs (`Confirm deletion? [Yes] [Cancel]`), ensuring no accidental data loss.
+6. **Data Privacy & Security:**
+   - Stores strictly local technical trip features and fares.
+   - **No API keys, secret credentials, user passwords, or tracking tokens are ever saved.**
+
+---
+
 ## 📜 License
 
 This project is licensed under the [MIT License](LICENSE). You are free to use, modify, and distribute this codebase with proper attribution.
+
 
