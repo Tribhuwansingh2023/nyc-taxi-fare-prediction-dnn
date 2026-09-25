@@ -3,7 +3,7 @@ __pycache__/
 *.py[cod]
 *$py.class
 
-# Large Datasets
+# Large Datasets and Partitions
 dataset/
 data/
 *.zip
@@ -14,10 +14,14 @@ saved_models/*.pt
 saved_models/*.pkl
 saved_models/*.onnx
 
-# Documents and reports
+# Academic Reports and Artifacts
 *.docx
 *.pdf
+soa_logo.png
 summary.csv
+
+# UI Screenshots (Local Deployment)
+visualizations/ui_*.png
 
 # Jupyter Notebook checkpoints
 .ipynb_checkpoints/
