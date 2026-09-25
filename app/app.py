@@ -2697,6 +2697,25 @@ Top Influencing Factors for this Trip:
                 pickable=True,
                 auto_highlight=True
             )
+
+            cabs_df = pd.DataFrame([
+                {
+                    "lat": c["lat"],
+                    "lon": c["lon"],
+                    "name": f"🚖 Cab #{c['medallion']} ({c['driver']})",
+                    "color": [245, 158, 11, 230]
+                }
+                for c in nearby_cabs
+            ])
+            cabs_layer = pdk.Layer(
+                "ScatterplotLayer",
+                data=cabs_df,
+                get_position=["lon", "lat"],
+                get_color="color",
+                get_radius=120,
+                pickable=True,
+                auto_highlight=True
+            )
             
             if is_route_success and len(road_coords) >= 2:
                 road_path_df = pd.DataFrame([{
