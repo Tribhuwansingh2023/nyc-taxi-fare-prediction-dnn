@@ -2122,87 +2122,84 @@ st.markdown(f"""
 # =============================================================================
 st.markdown(f"""
 <div style="background: {card_bg}; border: 1px solid {card_border}; border-radius: 16px; padding: 1.2rem 1.4rem; margin-bottom: 1.2rem; box-shadow: 0 4px 18px rgba(0,0,0,0.05);">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.9rem; border-bottom: 1px solid {card_border}; padding-bottom: 0.5rem; flex-wrap: wrap; gap: 0.5rem;">
-        <div style="font-size: 0.95rem; font-weight: 700; color: {'#38BDF8' if is_night_theme else '#0284C7'}; text-transform: uppercase; letter-spacing: 0.06em;">
-            📋 Trip Summary & Comparative Fare Analysis
-        </div>
-        <div style="font-size: 0.8rem; color: {'#94A3B8' if is_night_theme else '#64748B'};">
-            Trip Date: <b>{trip_date.strftime('%b %d, %Y')}</b> &nbsp;|&nbsp; Departure: <b>{trip_time.strftime('%I:%M %p')}</b>
-        </div>
-    </div>
-    
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.2rem;">
-        <!-- Left: Trip Parameters -->
-        <div style="background: {'rgba(15, 23, 42, 0.45)' if is_night_theme else '#F8FAFC'}; border: 1px solid {card_border}; border-radius: 12px; padding: 1rem 1.1rem;">
-            <div style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: {'#38BDF8' if is_night_theme else '#2563EB'}; margin-bottom: 0.6rem;">
-                TRIP
-            </div>
-            <div style="margin-bottom: 0.55rem;">
-                <div style="font-size: 0.72rem; color: {'#94A3B8' if is_night_theme else '#64748B'}; text-transform: uppercase; font-weight: 600;">Pickup</div>
-                <div style="font-size: 0.92rem; font-weight: 700; color: {card_text};">{disp_p_addr}</div>
-            </div>
-            <div style="margin-bottom: 0.55rem;">
-                <div style="font-size: 0.72rem; color: {'#94A3B8' if is_night_theme else '#64748B'}; text-transform: uppercase; font-weight: 600;">Drop-off</div>
-                <div style="font-size: 0.92rem; font-weight: 700; color: {card_text};">{disp_d_addr}</div>
-            </div>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; margin-top: 0.6rem; border-top: 1px dashed {card_border}; padding-top: 0.6rem;">
-                <div>
-                    <div style="font-size: 0.72rem; color: {'#94A3B8' if is_night_theme else '#64748B'};">Air Distance</div>
-                    <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.95rem; font-weight: 700; color: {card_text};">{distance_km:.2f} km</div>
-                </div>
-                <div>
-                    <div style="font-size: 0.72rem; color: {'#94A3B8' if is_night_theme else '#64748B'};">Road Distance</div>
-                    <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.95rem; font-weight: 700; color: {'#38BDF8' if is_night_theme else '#0284C7'};">{road_dist_display}</div>
-                </div>
-                <div>
-                    <div style="font-size: 0.72rem; color: {'#94A3B8' if is_night_theme else '#64748B'};">Estimated Duration</div>
-                    <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.95rem; font-weight: 700; color: {'#10B981' if is_night_theme else '#16A34A'};">{road_dur_fmt if is_route_success else 'Duration unavailable'}</div>
-                </div>
-                <div>
-                    <div style="font-size: 0.72rem; color: {'#94A3B8' if is_night_theme else '#64748B'};">Passengers</div>
-                    <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.95rem; font-weight: 700; color: {card_text};">{passengers}</div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Right: Fare Comparison Box -->
-        <div style="background: {'rgba(15, 23, 42, 0.45)' if is_night_theme else '#F8FAFC'}; border: 1px solid {card_border}; border-radius: 12px; padding: 1rem 1.1rem; display: flex; flex-direction: column; justify-content: space-between;">
-            <div>
-                <div style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: {'#38BDF8' if is_night_theme else '#2563EB'}; margin-bottom: 0.6rem;">
-                    FARE COMPARISON
-                </div>
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.45rem;">
-                    <div>
-                        <div style="font-size: 0.9rem; font-weight: 700; color: {card_text};">🤖 ML Prediction</div>
-                        <div style="font-size: 0.7rem; color: {'#94A3B8' if is_night_theme else '#64748B'};">PyTorch Deep Feedforward Neural Network</div>
-                    </div>
-                    <div style="font-family: 'JetBrains Mono', monospace; font-size: 1.25rem; font-weight: 800; color: {'#10B981' if is_night_theme else '#16A34A'};">
-                        ${pred_fare:.2f}
-                    </div>
-                </div>
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.6rem;">
-                    <div>
-                        <div style="font-size: 0.9rem; font-weight: 700; color: {card_text};">📜 Reference Fare Estimate</div>
-                        <div style="font-size: 0.7rem; color: {'#94A3B8' if is_night_theme else '#64748B'};">NYC TLC Rule-Based Meter Tariff</div>
-                    </div>
-                    <div style="font-family: 'JetBrains Mono', monospace; font-size: 1.25rem; font-weight: 800; color: {'#38BDF8' if is_night_theme else '#2563EB'};">
-                        ${ref_estimate:.2f}
-                    </div>
-                </div>
-                <div style="border-top: 1px solid {card_border}; padding-top: 0.55rem; display: flex; justify-content: space-between; align-items: center;">
-                    <div style="font-size: 0.88rem; font-weight: 700; color: {card_text};">Difference</div>
-                    <div style="font-family: 'JetBrains Mono', monospace; font-size: 1.2rem; font-weight: 800; color: {'#F59E0B' if is_night_theme else '#D97706'};">
-                        ${fare_comp['absolute_difference']:.2f} <span style="font-size: 0.8rem; font-weight: 600;">({'+' if fare_comp['difference'] >= 0 else '-'}{fare_comp['percentage_difference']:.1f}%)</span>
-                    </div>
-                </div>
-            </div>
-            
-            <div style="margin-top: 0.6rem; padding-top: 0.5rem; border-top: 1px dashed {card_border}; font-size: 0.72rem; color: {'#94A3B8' if is_night_theme else '#64748B'}; line-height: 1.4;">
-                💡 <b>Top Model Attributions:</b> {', '.join([f"<b>{f['icon']} {f['display_name']}</b> ({f['formatted_delta']})" for f in dnn_explanation['top_features'][:3]]) if (dnn_explanation and dnn_explanation.get('status') == 'success') else 'Detailed attribution available in Tab 1'}<br>
-                ℹ️ <b>Academic Distinction:</b> ML prediction is learned from historical clearing transactions. Reference estimate is calculated strictly from statutory TLC meter rules.
-            </div>
-        </div>
-    </div>
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.9rem; border-bottom: 1px solid {card_border}; padding-bottom: 0.5rem; flex-wrap: wrap; gap: 0.5rem;">
+<div style="font-size: 0.95rem; font-weight: 700; color: {'#38BDF8' if is_night_theme else '#0284C7'}; text-transform: uppercase; letter-spacing: 0.06em;">
+📋 Trip Summary & Comparative Fare Analysis
+</div>
+<div style="font-size: 0.8rem; color: {'#94A3B8' if is_night_theme else '#64748B'};">
+Trip Date: <b>{trip_date.strftime('%b %d, %Y')}</b> &nbsp;|&nbsp; Departure: <b>{trip_time.strftime('%I:%M %p')}</b>
+</div>
+</div>
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.2rem;">
+<!-- Left: Trip Parameters -->
+<div style="background: {'rgba(15, 23, 42, 0.45)' if is_night_theme else '#F8FAFC'}; border: 1px solid {card_border}; border-radius: 12px; padding: 1rem 1.1rem;">
+<div style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: {'#38BDF8' if is_night_theme else '#2563EB'}; margin-bottom: 0.6rem;">
+TRIP
+</div>
+<div style="margin-bottom: 0.55rem;">
+<div style="font-size: 0.72rem; color: {'#94A3B8' if is_night_theme else '#64748B'}; text-transform: uppercase; font-weight: 600;">Pickup</div>
+<div style="font-size: 0.92rem; font-weight: 700; color: {card_text};">{disp_p_addr}</div>
+</div>
+<div style="margin-bottom: 0.55rem;">
+<div style="font-size: 0.72rem; color: {'#94A3B8' if is_night_theme else '#64748B'}; text-transform: uppercase; font-weight: 600;">Drop-off</div>
+<div style="font-size: 0.92rem; font-weight: 700; color: {card_text};">{disp_d_addr}</div>
+</div>
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; margin-top: 0.6rem; border-top: 1px dashed {card_border}; padding-top: 0.6rem;">
+<div>
+<div style="font-size: 0.72rem; color: {'#94A3B8' if is_night_theme else '#64748B'};">Air Distance</div>
+<div style="font-family: 'JetBrains Mono', monospace; font-size: 0.95rem; font-weight: 700; color: {card_text};">{distance_km:.2f} km</div>
+</div>
+<div>
+<div style="font-size: 0.72rem; color: {'#94A3B8' if is_night_theme else '#64748B'};">Road Distance</div>
+<div style="font-family: 'JetBrains Mono', monospace; font-size: 0.95rem; font-weight: 700; color: {'#38BDF8' if is_night_theme else '#0284C7'};">{road_dist_display}</div>
+</div>
+<div>
+<div style="font-size: 0.72rem; color: {'#94A3B8' if is_night_theme else '#64748B'};">Estimated Duration</div>
+<div style="font-family: 'JetBrains Mono', monospace; font-size: 0.95rem; font-weight: 700; color: {'#10B981' if is_night_theme else '#16A34A'};">{road_dur_fmt if is_route_success else 'Duration unavailable'}</div>
+</div>
+<div>
+<div style="font-size: 0.72rem; color: {'#94A3B8' if is_night_theme else '#64748B'};">Passengers</div>
+<div style="font-family: 'JetBrains Mono', monospace; font-size: 0.95rem; font-weight: 700; color: {card_text};">{passengers}</div>
+</div>
+</div>
+</div>
+<!-- Right: Fare Comparison Box -->
+<div style="background: {'rgba(15, 23, 42, 0.45)' if is_night_theme else '#F8FAFC'}; border: 1px solid {card_border}; border-radius: 12px; padding: 1rem 1.1rem; display: flex; flex-direction: column; justify-content: space-between;">
+<div>
+<div style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: {'#38BDF8' if is_night_theme else '#2563EB'}; margin-bottom: 0.6rem;">
+FARE COMPARISON
+</div>
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.45rem;">
+<div>
+<div style="font-size: 0.9rem; font-weight: 700; color: {card_text};">🤖 ML Prediction</div>
+<div style="font-size: 0.7rem; color: {'#94A3B8' if is_night_theme else '#64748B'};">PyTorch Deep Feedforward Neural Network</div>
+</div>
+<div style="font-family: 'JetBrains Mono', monospace; font-size: 1.25rem; font-weight: 800; color: {'#10B981' if is_night_theme else '#16A34A'};">
+${pred_fare:.2f}
+</div>
+</div>
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.6rem;">
+<div>
+<div style="font-size: 0.9rem; font-weight: 700; color: {card_text};">📜 Reference Fare Estimate</div>
+<div style="font-size: 0.7rem; color: {'#94A3B8' if is_night_theme else '#64748B'};">NYC TLC Rule-Based Meter Tariff</div>
+</div>
+<div style="font-family: 'JetBrains Mono', monospace; font-size: 1.25rem; font-weight: 800; color: {'#38BDF8' if is_night_theme else '#2563EB'};">
+${ref_estimate:.2f}
+</div>
+</div>
+<div style="border-top: 1px solid {card_border}; padding-top: 0.55rem; display: flex; justify-content: space-between; align-items: center;">
+<div style="font-size: 0.88rem; font-weight: 700; color: {card_text};">Difference</div>
+<div style="font-family: 'JetBrains Mono', monospace; font-size: 1.2rem; font-weight: 800; color: {'#F59E0B' if is_night_theme else '#D97706'};">
+${fare_comp['absolute_difference']:.2f} <span style="font-size: 0.8rem; font-weight: 600;">({'+' if fare_comp['difference'] >= 0 else '-'}{fare_comp['percentage_difference']:.1f}%)</span>
+</div>
+</div>
+</div>
+<div style="margin-top: 0.6rem; padding-top: 0.5rem; border-top: 1px dashed {card_border}; font-size: 0.72rem; color: {'#94A3B8' if is_night_theme else '#64748B'}; line-height: 1.4;">
+💡 <b>Top Model Attributions:</b> {', '.join([f"<b>{f['icon']} {f['display_name']}</b> ({f['formatted_delta']})" for f in dnn_explanation['top_features'][:3]]) if (dnn_explanation and dnn_explanation.get('status') == 'success') else 'Detailed attribution available in Tab 1'}<br>
+ℹ️ <b>Academic Distinction:</b> ML prediction is learned from historical clearing transactions. Reference estimate is calculated strictly from statutory TLC meter rules.
+</div>
+</div>
+</div>
 </div>
 """, unsafe_allow_html=True)
 
@@ -2488,40 +2485,38 @@ with tab_main:
                 """
 
             st.markdown(f"""
-            <div style="background: {card_bg}; border: 1px solid {card_border}; border-radius: 14px; padding: 1.1rem 1.3rem; margin: 0.8rem 0; box-shadow: 0 4px 14px rgba(0,0,0,0.04);">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; border-bottom: 1px solid {card_border}; padding-bottom: 0.45rem; flex-wrap: wrap; gap: 0.4rem;">
-                    <div style="font-size: 0.82rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: {'#38BDF8' if is_night_theme else '#0284C7'};">
-                        🧠 WHY THIS PREDICTION? (MODEL ATTRIBUTION)
-                    </div>
-                    <div style="font-size: 0.72rem; color: {'#94A3B8' if is_night_theme else '#64748B'};">
-                        Method: <b>Integrated Gradients</b>
-                    </div>
-                </div>
-                
-                <!-- Base vs Final Prediction Pathway -->
-                <div style="display: flex; justify-content: space-between; align-items: center; background: {'rgba(15, 23, 42, 0.4)' if is_night_theme else '#F8FAFC'}; border: 1px solid {card_border}; border-radius: 10px; padding: 0.65rem 0.85rem; margin-bottom: 0.8rem; font-size: 0.78rem;">
-                    <div>
-                        <div style="color: {'#94A3B8' if is_night_theme else '#64748B'}; font-size: 0.7rem;">Average Trip Base</div>
-                        <div style="font-family: 'JetBrains Mono'; font-weight: 700; color: {card_text}; font-size: 0.95rem;">${dnn_explanation['base_prediction']:.2f}</div>
-                    </div>
-                    <div style="font-size: 1.1rem; color: {'#94A3B8' if is_night_theme else '#64748B'};">→</div>
-                    <div>
-                        <div style="color: {'#94A3B8' if is_night_theme else '#64748B'}; font-size: 0.7rem;">Net Attributions</div>
-                        <div style="font-family: 'JetBrains Mono'; font-weight: 700; color: {'#10B981' if dnn_explanation['net_attribution'] >= 0 else '#F43F5E'}; font-size: 0.95rem;">{'+' if dnn_explanation['net_attribution'] >= 0 else ''}${dnn_explanation['net_attribution']:.2f}</div>
-                    </div>
-                    <div style="font-size: 1.1rem; color: {'#94A3B8' if is_night_theme else '#64748B'};">→</div>
-                    <div>
-                        <div style="color: {'#94A3B8' if is_night_theme else '#64748B'}; font-size: 0.7rem;">Final Predicted Fare</div>
-                        <div style="font-family: 'JetBrains Mono'; font-weight: 800; color: {'#10B981' if is_night_theme else '#16A34A'}; font-size: 1.05rem;">${pred_fare:.2f}</div>
-                    </div>
-                </div>
-
-                <div style="font-size: 0.74rem; font-weight: 700; text-transform: uppercase; color: {card_text}; margin-bottom: 0.5rem; letter-spacing: 0.04em;">
-                    Top Influencing Factors for this Trip:
-                </div>
-                {top_factors_html}
-            </div>
-            """, unsafe_allow_html=True)
+<div style="background: {card_bg}; border: 1px solid {card_border}; border-radius: 14px; padding: 1.1rem 1.3rem; margin: 0.8rem 0; box-shadow: 0 4px 14px rgba(0,0,0,0.04);">
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; border-bottom: 1px solid {card_border}; padding-bottom: 0.45rem; flex-wrap: wrap; gap: 0.4rem;">
+<div style="font-size: 0.82rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: {'#38BDF8' if is_night_theme else '#0284C7'};">
+🧠 WHY THIS PREDICTION? (MODEL ATTRIBUTION)
+</div>
+<div style="font-size: 0.72rem; color: {'#94A3B8' if is_night_theme else '#64748B'};">
+Method: <b>Integrated Gradients</b>
+</div>
+</div>
+<!-- Base vs Final Prediction Pathway -->
+<div style="display: flex; justify-content: space-between; align-items: center; background: {'rgba(15, 23, 42, 0.4)' if is_night_theme else '#F8FAFC'}; border: 1px solid {card_border}; border-radius: 10px; padding: 0.65rem 0.85rem; margin-bottom: 0.8rem; font-size: 0.78rem;">
+<div>
+<div style="color: {'#94A3B8' if is_night_theme else '#64748B'}; font-size: 0.7rem;">Average Trip Base</div>
+<div style="font-family: 'JetBrains Mono'; font-weight: 700; color: {card_text}; font-size: 0.95rem;">${dnn_explanation['base_prediction']:.2f}</div>
+</div>
+<div style="font-size: 1.1rem; color: {'#94A3B8' if is_night_theme else '#64748B'};">→</div>
+<div>
+<div style="color: {'#94A3B8' if is_night_theme else '#64748B'}; font-size: 0.7rem;">Net Attributions</div>
+<div style="font-family: 'JetBrains Mono'; font-weight: 700; color: {'#10B981' if dnn_explanation['net_attribution'] >= 0 else '#F43F5E'}; font-size: 0.95rem;">{'+' if dnn_explanation['net_attribution'] >= 0 else ''}${dnn_explanation['net_attribution']:.2f}</div>
+</div>
+<div style="font-size: 1.1rem; color: {'#94A3B8' if is_night_theme else '#64748B'};">→</div>
+<div>
+<div style="color: {'#94A3B8' if is_night_theme else '#64748B'}; font-size: 0.7rem;">Final Predicted Fare</div>
+<div style="font-family: 'JetBrains Mono'; font-weight: 800; color: {'#10B981' if is_night_theme else '#16A34A'}; font-size: 1.05rem;">${pred_fare:.2f}</div>
+</div>
+</div>
+<div style="font-size: 0.74rem; font-weight: 700; text-transform: uppercase; color: {card_text}; margin-bottom: 0.5rem; letter-spacing: 0.04em;">
+Top Influencing Factors for this Trip:
+</div>
+{top_factors_html}
+</div>
+""", unsafe_allow_html=True)
 
             with st.expander("🔍 Deep Model Attribution, Waterfall & Global Insights", expanded=False):
                 t_tab1, t_tab2, t_tab3 = st.tabs(["📊 Contribution Chart", "🌊 Waterfall Path", "🌐 Global Insights"])
@@ -2816,64 +2811,62 @@ with tab_main:
 
         # Real Traffic Conditions Telemetry (Feature #11)
         st.markdown(f"""
-        <div style="background: {card_bg}; padding: 0.85rem 1.15rem; border-radius: 12px; border: 1px solid {card_border}; margin-top: 0.6rem; box-shadow: 0 4px 12px rgba(0,0,0,0.04);">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; border-bottom: 1px solid {card_border}; padding-bottom: 0.35rem;">
-                <span style="font-weight: 800; font-size: 0.88rem; letter-spacing: 0.05em; color: {'#38BDF8' if is_night_theme else '#0284C7'};">
-                    🚦 TRAFFIC CONDITIONS
-                </span>
-                <span style="font-size: 0.72rem; color: {'#94A3B8' if is_night_theme else '#64748B'};">
-                    Provider: <b>{traffic_info.get('provider', 'Routing Service')}</b>
-                </span>
-            </div>
-            
-            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.55rem; font-size: 0.82rem; margin-bottom: 0.5rem;">
-                <div>
-                    <div style="color: {'#94A3B8' if is_night_theme else '#64748B'}; font-size: 0.7rem;">Status</div>
-                    <div style="font-weight: 700; color: {'#10B981' if 'Normal' in formatted_traffic['status'] else ('#F59E0B' if 'Moderate' in formatted_traffic['status'] else ('#EF4444' if 'Heavy' in formatted_traffic['status'] else card_text))};">
-                        {formatted_traffic['status']}
-                    </div>
-                </div>
-                <div>
-                    <div style="color: {'#94A3B8' if is_night_theme else '#64748B'}; font-size: 0.7rem;">Road Distance</div>
-                    <div style="font-weight: 700; color: {card_text}; font-family: 'JetBrains Mono';">
-                        {formatted_traffic['road_distance']}
-                    </div>
-                </div>
-                <div>
-                    <div style="color: {'#94A3B8' if is_night_theme else '#64748B'}; font-size: 0.7rem;">Current / Est. Speed</div>
-                    <div style="font-weight: 700; color: {card_text}; font-family: 'JetBrains Mono';">
-                        {formatted_traffic['speed']}
-                    </div>
-                </div>
-                <div>
-                    <div style="color: {'#94A3B8' if is_night_theme else '#64748B'}; font-size: 0.7rem;">Normal ETA</div>
-                    <div style="font-weight: 700; color: {card_text}; font-family: 'JetBrains Mono';">
-                        {formatted_traffic['normal_eta']}
-                    </div>
-                </div>
-                <div>
-                    <div style="color: {'#94A3B8' if is_night_theme else '#64748B'}; font-size: 0.7rem;">Traffic ETA</div>
-                    <div style="font-weight: 700; color: {card_text}; font-family: 'JetBrains Mono';">
-                        {formatted_traffic['traffic_eta']}
-                    </div>
-                </div>
-                <div>
-                    <div style="color: {'#94A3B8' if is_night_theme else '#64748B'}; font-size: 0.7rem;">Estimated Delay</div>
-                    <div style="font-weight: 700; color: {'#10B981' if '0 min' in formatted_traffic['delay'] or 'No delay' in formatted_traffic['delay'] else ('#F59E0B' if '+' in formatted_traffic['delay'] else card_text)}; font-family: 'JetBrains Mono';">
-                        {formatted_traffic['delay']}
-                    </div>
-                </div>
-            </div>
-            
-            <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px dashed {card_border}; padding-top: 0.35rem; font-size: 0.72rem; color: {'#94A3B8' if is_night_theme else '#64748B'};">
-                <span>🕒 Updated: <b>{formatted_traffic['updated']}</b></span>
-                <span>🧠 <b>MODEL IMPACT:</b> {formatted_traffic['model_impact']}</span>
-            </div>
-            <div style="margin-top: 0.3rem; font-size: 0.71rem; color: {'#94A3B8' if is_night_theme else '#64748B'};">
-                ℹ️ {formatted_traffic['explanation']}
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+<div style="background: {card_bg}; padding: 0.85rem 1.15rem; border-radius: 12px; border: 1px solid {card_border}; margin-top: 0.6rem; box-shadow: 0 4px 12px rgba(0,0,0,0.04);">
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; border-bottom: 1px solid {card_border}; padding-bottom: 0.35rem;">
+<span style="font-weight: 800; font-size: 0.88rem; letter-spacing: 0.05em; color: {'#38BDF8' if is_night_theme else '#0284C7'};">
+🚦 TRAFFIC CONDITIONS
+</span>
+<span style="font-size: 0.72rem; color: {'#94A3B8' if is_night_theme else '#64748B'};">
+Provider: <b>{traffic_info.get('provider', 'Routing Service')}</b>
+</span>
+</div>
+<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.55rem; font-size: 0.82rem; margin-bottom: 0.5rem;">
+<div>
+<div style="color: {'#94A3B8' if is_night_theme else '#64748B'}; font-size: 0.7rem;">Status</div>
+<div style="font-weight: 700; color: {'#10B981' if 'Normal' in formatted_traffic['status'] else ('#F59E0B' if 'Moderate' in formatted_traffic['status'] else ('#EF4444' if 'Heavy' in formatted_traffic['status'] else card_text))};">
+{formatted_traffic['status']}
+</div>
+</div>
+<div>
+<div style="color: {'#94A3B8' if is_night_theme else '#64748B'}; font-size: 0.7rem;">Road Distance</div>
+<div style="font-weight: 700; color: {card_text}; font-family: 'JetBrains Mono';">
+{formatted_traffic['road_distance']}
+</div>
+</div>
+<div>
+<div style="color: {'#94A3B8' if is_night_theme else '#64748B'}; font-size: 0.7rem;">Current / Est. Speed</div>
+<div style="font-weight: 700; color: {card_text}; font-family: 'JetBrains Mono';">
+{formatted_traffic['speed']}
+</div>
+</div>
+<div>
+<div style="color: {'#94A3B8' if is_night_theme else '#64748B'}; font-size: 0.7rem;">Normal ETA</div>
+<div style="font-weight: 700; color: {card_text}; font-family: 'JetBrains Mono';">
+{formatted_traffic['normal_eta']}
+</div>
+</div>
+<div>
+<div style="color: {'#94A3B8' if is_night_theme else '#64748B'}; font-size: 0.7rem;">Traffic ETA</div>
+<div style="font-weight: 700; color: {card_text}; font-family: 'JetBrains Mono';">
+{formatted_traffic['traffic_eta']}
+</div>
+</div>
+<div>
+<div style="color: {'#94A3B8' if is_night_theme else '#64748B'}; font-size: 0.7rem;">Estimated Delay</div>
+<div style="font-weight: 700; color: {'#10B981' if '0 min' in formatted_traffic['delay'] or 'No delay' in formatted_traffic['delay'] else ('#F59E0B' if '+' in formatted_traffic['delay'] else card_text)}; font-family: 'JetBrains Mono';">
+{formatted_traffic['delay']}
+</div>
+</div>
+</div>
+<div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px dashed {card_border}; padding-top: 0.35rem; font-size: 0.72rem; color: {'#94A3B8' if is_night_theme else '#64748B'};">
+<span>🕒 Updated: <b>{formatted_traffic['updated']}</b></span>
+<span>🧠 <b>MODEL IMPACT:</b> {formatted_traffic['model_impact']}</span>
+</div>
+<div style="margin-top: 0.3rem; font-size: 0.71rem; color: {'#94A3B8' if is_night_theme else '#64748B'};">
+ℹ️ {formatted_traffic['explanation']}
+</div>
+</div>
+""", unsafe_allow_html=True)
 
     # -------------------------------------------------------------------------
     # REAL-TIME FLEET DISPATCH RADAR & LIVE TAXIMETER SIMULATOR
