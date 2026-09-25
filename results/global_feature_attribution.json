@@ -1,0 +1,238 @@
+{
+    "method": "Integrated Gradients (Trapezoidal Path Integral over m=30 steps)",
+    "baseline": "Zero vector in standard score space (Sample Mean Trip across NYC)",
+    "sample_size": 500,
+    "global_feature_importance": [
+        {
+            "rank": 1,
+            "feature": "euclidean_dist",
+            "mean_absolute_attribution": 3.4284,
+            "positive_ratio": 0.326,
+            "negative_ratio": 0.674
+        },
+        {
+            "rank": 2,
+            "feature": "haversine_dist_km",
+            "mean_absolute_attribution": 3.1757,
+            "positive_ratio": 0.338,
+            "negative_ratio": 0.662
+        },
+        {
+            "rank": 3,
+            "feature": "year",
+            "mean_absolute_attribution": 0.9582,
+            "positive_ratio": 0.512,
+            "negative_ratio": 0.488
+        },
+        {
+            "rank": 4,
+            "feature": "pickup_LGA_dist",
+            "mean_absolute_attribution": 0.6382,
+            "positive_ratio": 0.518,
+            "negative_ratio": 0.482
+        },
+        {
+            "rank": 5,
+            "feature": "dropoff_EWR_dist",
+            "mean_absolute_attribution": 0.6101,
+            "positive_ratio": 0.388,
+            "negative_ratio": 0.612
+        },
+        {
+            "rank": 6,
+            "feature": "bearing_deg",
+            "mean_absolute_attribution": 0.5932,
+            "positive_ratio": 0.51,
+            "negative_ratio": 0.49
+        },
+        {
+            "rank": 7,
+            "feature": "cos_hour",
+            "mean_absolute_attribution": 0.5555,
+            "positive_ratio": 0.496,
+            "negative_ratio": 0.504
+        },
+        {
+            "rank": 8,
+            "feature": "lat_diff",
+            "mean_absolute_attribution": 0.5284,
+            "positive_ratio": 0.678,
+            "negative_ratio": 0.322
+        },
+        {
+            "rank": 9,
+            "feature": "dropoff_LGA_dist",
+            "mean_absolute_attribution": 0.5254,
+            "positive_ratio": 0.5,
+            "negative_ratio": 0.5
+        },
+        {
+            "rank": 10,
+            "feature": "dropoff_latitude",
+            "mean_absolute_attribution": 0.4616,
+            "positive_ratio": 0.462,
+            "negative_ratio": 0.538
+        },
+        {
+            "rank": 11,
+            "feature": "manhattan_dist_km",
+            "mean_absolute_attribution": 0.4376,
+            "positive_ratio": 0.666,
+            "negative_ratio": 0.334
+        },
+        {
+            "rank": 12,
+            "feature": "dropoff_longitude",
+            "mean_absolute_attribution": 0.3776,
+            "positive_ratio": 0.352,
+            "negative_ratio": 0.648
+        },
+        {
+            "rank": 13,
+            "feature": "dropoff_Midtown_dist",
+            "mean_absolute_attribution": 0.3217,
+            "positive_ratio": 0.63,
+            "negative_ratio": 0.37
+        },
+        {
+            "rank": 14,
+            "feature": "month",
+            "mean_absolute_attribution": 0.2932,
+            "positive_ratio": 0.49,
+            "negative_ratio": 0.51
+        },
+        {
+            "rank": 15,
+            "feature": "lon_diff",
+            "mean_absolute_attribution": 0.2717,
+            "positive_ratio": 0.472,
+            "negative_ratio": 0.528
+        },
+        {
+            "rank": 16,
+            "feature": "pickup_Midtown_dist",
+            "mean_absolute_attribution": 0.2235,
+            "positive_ratio": 0.542,
+            "negative_ratio": 0.458
+        },
+        {
+            "rank": 17,
+            "feature": "dropoff_JFK_dist",
+            "mean_absolute_attribution": 0.2167,
+            "positive_ratio": 0.596,
+            "negative_ratio": 0.404
+        },
+        {
+            "rank": 18,
+            "feature": "pickup_JFK_dist",
+            "mean_absolute_attribution": 0.187,
+            "positive_ratio": 0.522,
+            "negative_ratio": 0.478
+        },
+        {
+            "rank": 19,
+            "feature": "sin_hour",
+            "mean_absolute_attribution": 0.1781,
+            "positive_ratio": 0.608,
+            "negative_ratio": 0.392
+        },
+        {
+            "rank": 20,
+            "feature": "pickup_latitude",
+            "mean_absolute_attribution": 0.1776,
+            "positive_ratio": 0.486,
+            "negative_ratio": 0.514
+        },
+        {
+            "rank": 21,
+            "feature": "is_weekend",
+            "mean_absolute_attribution": 0.17,
+            "positive_ratio": 0.348,
+            "negative_ratio": 0.652
+        },
+        {
+            "rank": 22,
+            "feature": "pickup_EWR_dist",
+            "mean_absolute_attribution": 0.1639,
+            "positive_ratio": 0.396,
+            "negative_ratio": 0.604
+        },
+        {
+            "rank": 23,
+            "feature": "cos_month",
+            "mean_absolute_attribution": 0.1401,
+            "positive_ratio": 0.414,
+            "negative_ratio": 0.586
+        },
+        {
+            "rank": 24,
+            "feature": "day_of_week",
+            "mean_absolute_attribution": 0.1285,
+            "positive_ratio": 0.276,
+            "negative_ratio": 0.724
+        },
+        {
+            "rank": 25,
+            "feature": "pickup_longitude",
+            "mean_absolute_attribution": 0.1265,
+            "positive_ratio": 0.35,
+            "negative_ratio": 0.65
+        },
+        {
+            "rank": 26,
+            "feature": "dist_per_passenger",
+            "mean_absolute_attribution": 0.1016,
+            "positive_ratio": 0.658,
+            "negative_ratio": 0.342
+        },
+        {
+            "rank": 27,
+            "feature": "hour",
+            "mean_absolute_attribution": 0.088,
+            "positive_ratio": 0.442,
+            "negative_ratio": 0.558
+        },
+        {
+            "rank": 28,
+            "feature": "cos_dow",
+            "mean_absolute_attribution": 0.0874,
+            "positive_ratio": 0.392,
+            "negative_ratio": 0.608
+        },
+        {
+            "rank": 29,
+            "feature": "sin_month",
+            "mean_absolute_attribution": 0.0714,
+            "positive_ratio": 0.418,
+            "negative_ratio": 0.582
+        },
+        {
+            "rank": 30,
+            "feature": "sin_dow",
+            "mean_absolute_attribution": 0.0635,
+            "positive_ratio": 0.608,
+            "negative_ratio": 0.392
+        },
+        {
+            "rank": 31,
+            "feature": "is_rush_hour",
+            "mean_absolute_attribution": 0.0548,
+            "positive_ratio": 0.386,
+            "negative_ratio": 0.614
+        },
+        {
+            "rank": 32,
+            "feature": "day",
+            "mean_absolute_attribution": 0.0373,
+            "positive_ratio": 0.438,
+            "negative_ratio": 0.562
+        },
+        {
+            "rank": 33,
+            "feature": "passenger_count",
+            "mean_absolute_attribution": 0.0277,
+            "positive_ratio": 0.556,
+            "negative_ratio": 0.444
+        }
+    ]
+}

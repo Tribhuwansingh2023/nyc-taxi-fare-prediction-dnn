@@ -25,6 +25,11 @@ visualizations/ui_*.png
 # Jupyter Notebook checkpoints
 .ipynb_checkpoints/
 
+# Databases
+*.db
+*.sqlite
+*.sqlite3
+
 # Environment / OS
 .env
 .venv/

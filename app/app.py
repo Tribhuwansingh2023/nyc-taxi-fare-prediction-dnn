@@ -22,6 +22,7 @@ import sys
 import time
 import datetime
 import json
+import logging
 import joblib
 import numpy as np
 import pandas as pd
@@ -51,6 +52,36 @@ from dnn_model import TaxiFareDNN
 from geocoding import geocode_address, is_in_nyc_bbox
 from routing import get_road_route, format_duration, calculate_haversine_km
 from fare_engine import calculate_meter_estimate, compare_fares, get_dnn_prediction_interval, NYC_TLC_FARE_RULES
+from explainability import (
+    explain_prediction_integrated_gradients,
+    explain_prediction_shap,
+    get_global_feature_attribution,
+    create_attribution_bar_chart,
+    create_attribution_waterfall_chart,
+    get_display_name,
+    get_feature_icon,
+    FEATURE_DISPLAY_NAMES
+)
+from trip_history import (
+    initialize_database,
+    insert_prediction as th_insert,
+    fetch_all as th_fetch_all,
+    fetch_by_id as th_fetch_by_id,
+    update_actual_fare as th_update_actual_fare,
+    delete_prediction as th_delete,
+    compute_aggregate_metrics as th_compute_metrics,
+    export_to_csv_bytes as th_export_csv,
+    get_distinct_models as th_distinct_models,
+    run_database_tests as th_run_db_tests,
+)
+
+logger = logging.getLogger(__name__)
+
+# Initialise trip-history DB on startup (idempotent)
+try:
+    initialize_database()
+except Exception as _db_init_err:
+    logger.error("Trip history DB init failed: %s", _db_init_err)
 
 # Configure Page
 st.set_page_config(
@@ -1680,6 +1711,14 @@ st.sidebar.markdown("🏛️ **Siksha 'O' Anusandhan (ITER)**  \nCourse: **CSE 4
 # =============================================================================
 # FEATURE EXTRACTION & REAL-TIME INFERENCE
 # =============================================================================
+# Extract coordinates from session state into local variables for the inference pipeline
+p_lat = float(st.session_state["p_lat"])
+p_lon = float(st.session_state["p_lon"])
+d_lat = float(st.session_state["d_lat"])
+d_lon = float(st.session_state["d_lon"])
+pickup_landmark = st.session_state.get("p_choice", "Pickup")
+dropoff_landmark = st.session_state.get("d_choice", "Drop-off")
+
 t_start_infer = time.perf_counter()
 pickup_dt = datetime.datetime.combine(trip_date, trip_time)
 raw_input_df = pd.DataFrame([{
@@ -1798,6 +1837,26 @@ ref_fare_res = calculate_meter_estimate(
 ref_estimate = ref_fare_res["estimated_total"]
 fare_comp = compare_fares(pred_fare, ref_estimate)
 dnn_interval = get_dnn_prediction_interval(pred_fare)
+
+# =============================================================================
+# REAL MODEL EXPLAINABILITY ENGINE (FEATURE #4)
+# =============================================================================
+dnn_explanation = None
+if dnn_model is not None and scaler is not None and 'X_scaled' in locals():
+    try:
+        dnn_explanation = explain_prediction_integrated_gradients(
+            model=dnn_model,
+            input_scaled=X_scaled[0],
+            feature_names=FEATURE_COLS,
+            raw_values=X_input[0],
+            steps=50
+        )
+    except Exception as e:
+        logger.error(f"Integrated Gradients attribution error: {e}")
+        dnn_explanation = {
+            "status": "unavailable",
+            "message": "Prediction explanation is currently unavailable for this model."
+        }
 
 # =============================================================================
 # REAL-TIME GEOCODED ROUTE & FARE OVERVIEW CARD
@@ -1988,7 +2047,8 @@ st.markdown(f"""
                 </div>
             </div>
             
-            <div style="margin-top: 0.6rem; padding-top: 0.5rem; border-top: 1px dashed {card_border}; font-size: 0.72rem; color: {'#94A3B8' if is_night_theme else '#64748B'}; line-height: 1.35;">
+            <div style="margin-top: 0.6rem; padding-top: 0.5rem; border-top: 1px dashed {card_border}; font-size: 0.72rem; color: {'#94A3B8' if is_night_theme else '#64748B'}; line-height: 1.4;">
+                💡 <b>Top Model Attributions:</b> {', '.join([f"<b>{f['icon']} {f['display_name']}</b> ({f['formatted_delta']})" for f in dnn_explanation['top_features'][:3]]) if (dnn_explanation and dnn_explanation.get('status') == 'success') else 'Detailed attribution available in Tab 1'}<br>
                 ℹ️ <b>Academic Distinction:</b> ML prediction is learned from historical clearing transactions. Reference estimate is calculated strictly from statutory TLC meter rules.
             </div>
         </div>
@@ -2059,7 +2119,7 @@ st.markdown("<br>", unsafe_allow_html=True)
 # =============================================================================
 # MAIN INTERACTIVE TABS
 # =============================================================================
-tab_main, tab_battle, tab_whatif, tab_receipt, tab_theory, tab_viz, tab_test, tab_academic = st.tabs([
+tab_main, tab_battle, tab_whatif, tab_receipt, tab_theory, tab_viz, tab_test, tab_academic, tab_history, tab_feedback = st.tabs([
     "🚖 Live Trip Studio",
     "⚡ Multi-Model Battle Arena",
     "🔮 What-If Simulator",
@@ -2067,7 +2127,9 @@ tab_main, tab_battle, tab_whatif, tab_receipt, tab_theory, tab_viz, tab_test, ta
     "🧠 Deep Neural Topology & Huber Loss",
     "📊 Visualization Gallery",
     "🧪 Automated Verification Suite",
-    "🏛️ Academic Registry"
+    "🏛️ Academic Registry",
+    "📚 Trip History",
+    "🎯 Prediction Feedback",
 ])
 
 # -----------------------------------------------------------------------------
@@ -2232,6 +2294,116 @@ with tab_main:
         </div>
         """, unsafe_allow_html=True)
 
+        # Real Model Explainability Card (Feature #4)
+        if dnn_explanation and dnn_explanation.get("status") == "success":
+            top_factors_html = ""
+            for feat in dnn_explanation["top_features"]:
+                impact_badge_bg = "rgba(56, 189, 248, 0.15)" if is_night_theme else "#EFF6FF"
+                impact_badge_border = "#38BDF8" if is_night_theme else "#BFDBFE"
+                impact_badge_text = "#38BDF8" if is_night_theme else "#1D4ED8"
+                dir_color = "#10B981" if feat["direction"] == "positive" else ("#F43F5E" if is_night_theme else "#DC2626")
+                
+                top_factors_html += f"""
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.45rem; padding: 0.4rem 0.65rem; border-radius: 8px; background: {'rgba(255,255,255,0.03)' if is_night_theme else '#FFFFFF'}; border: 1px solid {'rgba(255,255,255,0.06)' if is_night_theme else '#E2E8F0'};">
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <span style="font-size: 0.95rem;">{feat['icon']}</span>
+                        <div>
+                            <div style="font-size: 0.83rem; font-weight: 600; color: {card_text}; line-height: 1.2;">
+                                {feat['display_name']}
+                            </div>
+                            <div style="font-size: 0.68rem; color: {'#94A3B8' if is_night_theme else '#64748B'};">
+                                {feat['category']}
+                            </div>
+                        </div>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 0.6rem;">
+                        <span style="font-family: 'JetBrains Mono', monospace; font-size: 0.88rem; font-weight: 700; color: {dir_color};">
+                            {feat['formatted_delta']}
+                        </span>
+                        <span style="background: {impact_badge_bg}; border: 1px solid {impact_badge_border}; color: {impact_badge_text}; font-size: 0.67rem; font-weight: 700; padding: 0.15rem 0.45rem; border-radius: 6px; white-space: nowrap;">
+                            {feat['impact_level']}
+                        </span>
+                    </div>
+                </div>
+                """
+
+            st.markdown(f"""
+            <div style="background: {card_bg}; border: 1px solid {card_border}; border-radius: 14px; padding: 1.1rem 1.3rem; margin: 0.8rem 0; box-shadow: 0 4px 14px rgba(0,0,0,0.04);">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; border-bottom: 1px solid {card_border}; padding-bottom: 0.45rem; flex-wrap: wrap; gap: 0.4rem;">
+                    <div style="font-size: 0.82rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: {'#38BDF8' if is_night_theme else '#0284C7'};">
+                        🧠 WHY THIS PREDICTION? (MODEL ATTRIBUTION)
+                    </div>
+                    <div style="font-size: 0.72rem; color: {'#94A3B8' if is_night_theme else '#64748B'};">
+                        Method: <b>Integrated Gradients</b>
+                    </div>
+                </div>
+                
+                <!-- Base vs Final Prediction Pathway -->
+                <div style="display: flex; justify-content: space-between; align-items: center; background: {'rgba(15, 23, 42, 0.4)' if is_night_theme else '#F8FAFC'}; border: 1px solid {card_border}; border-radius: 10px; padding: 0.65rem 0.85rem; margin-bottom: 0.8rem; font-size: 0.78rem;">
+                    <div>
+                        <div style="color: {'#94A3B8' if is_night_theme else '#64748B'}; font-size: 0.7rem;">Average Trip Base</div>
+                        <div style="font-family: 'JetBrains Mono'; font-weight: 700; color: {card_text}; font-size: 0.95rem;">${dnn_explanation['base_prediction']:.2f}</div>
+                    </div>
+                    <div style="font-size: 1.1rem; color: {'#94A3B8' if is_night_theme else '#64748B'};">→</div>
+                    <div>
+                        <div style="color: {'#94A3B8' if is_night_theme else '#64748B'}; font-size: 0.7rem;">Net Attributions</div>
+                        <div style="font-family: 'JetBrains Mono'; font-weight: 700; color: {'#10B981' if dnn_explanation['net_attribution'] >= 0 else '#F43F5E'}; font-size: 0.95rem;">{'+' if dnn_explanation['net_attribution'] >= 0 else ''}${dnn_explanation['net_attribution']:.2f}</div>
+                    </div>
+                    <div style="font-size: 1.1rem; color: {'#94A3B8' if is_night_theme else '#64748B'};">→</div>
+                    <div>
+                        <div style="color: {'#94A3B8' if is_night_theme else '#64748B'}; font-size: 0.7rem;">Final Predicted Fare</div>
+                        <div style="font-family: 'JetBrains Mono'; font-weight: 800; color: {'#10B981' if is_night_theme else '#16A34A'}; font-size: 1.05rem;">${pred_fare:.2f}</div>
+                    </div>
+                </div>
+
+                <div style="font-size: 0.74rem; font-weight: 700; text-transform: uppercase; color: {card_text}; margin-bottom: 0.5rem; letter-spacing: 0.04em;">
+                    Top Influencing Factors for this Trip:
+                </div>
+                {top_factors_html}
+            </div>
+            """, unsafe_allow_html=True)
+
+            with st.expander("🔍 Deep Model Attribution, Waterfall & Global Insights", expanded=False):
+                t_tab1, t_tab2, t_tab3 = st.tabs(["📊 Contribution Chart", "🌊 Waterfall Path", "🌐 Global Insights"])
+                with t_tab1:
+                    st.markdown("##### 📊 Top Signed Feature Attributions (Integrated Gradients)")
+                    st.caption("Green bars push the predicted fare higher relative to the average NYC trip; red bars push the fare lower.")
+                    fig_bar = create_attribution_bar_chart(dnn_explanation, is_night_theme=is_night_theme, top_n=8)
+                    st.plotly_chart(fig_bar, use_container_width=True)
+                with t_tab2:
+                    st.markdown("##### 🌊 Step-by-Step Waterfall Attribution Decomposition")
+                    st.caption("Traces how the deep neural network navigates from the baseline dataset mean ($11.83) to the final trip prediction through feature additions.")
+                    fig_waterfall = create_attribution_waterfall_chart(dnn_explanation, is_night_theme=is_night_theme, top_n=6)
+                    st.plotly_chart(fig_waterfall, use_container_width=True)
+                with t_tab3:
+                    st.markdown("##### 🌐 Global Feature Importance (Holdout Validation Set)")
+                    st.caption("Mean absolute attribution across representative validation trips, evaluating overall feature influence across the entire trained model.")
+                    global_data = get_global_feature_attribution()
+                    if global_data.get("status") == "success":
+                        global_rankings = global_data.get("rankings", [])[:10]
+                        g_df = pd.DataFrame([{
+                            "Rank": f"#{r['rank']}",
+                            "Feature": f"{r['icon']} {r['display_name']}",
+                            "Category": r.get("category", "General"),
+                            "Mean Attribution ($)": f"${r['mean_absolute_attribution']:.2f}",
+                            "Pushes Higher": f"{r['positive_ratio']*100:.1f}%",
+                            "Pushes Lower": f"{r['negative_ratio']*100:.1f}%"
+                        } for r in global_rankings])
+                        st.dataframe(g_df, use_container_width=True, hide_index=True)
+                    else:
+                        st.info("Global model insights are currently unavailable.")
+
+                with st.expander("ℹ️ How should I interpret this?", expanded=False):
+                    st.markdown("""
+                    **What does this explanation show?**
+                    - The model explanation shows which input features had the strongest influence on this individual prediction according to **Integrated Gradients (Sundararajan et al., 2017)**.
+                    - **Model Attribution vs. Causation:** These are model attributions, not causal relationships. They describe the mathematical behavior of the trained PyTorch neural network rather than asserting real-world causality.
+                    - **Axiomatic Completeness:** Integrated Gradients satisfies the completeness axiom $\\sum_{i=1}^{33} \\text{Attribution}_i = F(x) - F(x_{\\text{baseline}})$. Every dollar above or below the baseline fare is strictly accounted for by the 33 features.
+                    - **Positive vs. Negative Contributions:** A positive contribution pushed the fare higher than an average trip (e.g., long distance, airport travel, rush hour). A negative contribution pulled the fare lower (e.g., short distance, off-peak timing).
+                    """)
+        elif dnn_explanation and dnn_explanation.get("status") == "unavailable":
+            st.info("ℹ️ Prediction explanation is currently unavailable for this model.")
+
         # Transparent Real-time Itemized Cost Breakdown
         with st.expander("🧾 Estimated Meter-Style Fare Breakdown", expanded=True):
             st.markdown(f"""
@@ -2270,6 +2442,43 @@ with tab_main:
             - **Prediction Interval:** Derived from empirical validation residuals ($\text{RMSE} = \$3.31, \text{MAE} = \$1.57, n=14,607$) rather than an arbitrary heuristic.
             - **Critical Academic Distinction:** The ML model predicts historical clearing prices (which reflect historical market conditions and driver behaviors), whereas the Reference Estimate calculates statutory meter rates under NYC TLC rules. Neither replaces the other; they provide complementary intelligence.
             """)
+
+        # ── SAVE TO TRIP HISTORY (Feature #8) ──────────────────────────────
+        st.markdown("---")
+        st.markdown("#### 💾 Save This Prediction")
+        save_btn_key = f"save_th_{int(pred_fare * 100)}_{int(distance_km * 100)}"
+        if st.button(
+            "📚 Save to Trip History",
+            key=save_btn_key,
+            use_container_width=True,
+            help="Persist this prediction to the local Trip History database for later review and feedback."
+        ):
+            _pickup_dt_str = pickup_dt.isoformat() if pickup_dt else None
+            _weather_str = f"{live_weather.get('icon','?')} {live_weather.get('desc','Unknown')} ({live_weather.get('temp_c',0):.1f}°C, {live_weather.get('wind',0):.1f} km/h wind)"
+            _traffic_str = "Rush Hour" if is_rush else ("Overnight" if is_night else "Standard")
+
+            _rid = th_insert(
+                pickup_address=disp_p_addr[:200] if disp_p_addr else None,
+                dropoff_address=disp_d_addr[:200] if disp_d_addr else None,
+                pickup_latitude=p_lat,
+                pickup_longitude=p_lon,
+                dropoff_latitude=d_lat,
+                dropoff_longitude=d_lon,
+                distance_km=distance_km,
+                road_distance_km=road_dist_km if is_route_success else None,
+                estimated_duration=road_dur_mins if is_route_success else None,
+                passenger_count=passengers,
+                pickup_datetime=_pickup_dt_str,
+                predicted_fare=pred_fare,
+                model_name="TaxiFareDNN",
+                model_version="1.0",
+                weather_summary=_weather_str,
+                traffic_summary=_traffic_str,
+            )
+            if _rid:
+                st.success(f"✅ Prediction saved to Trip History! (ID #{_rid}) — Go to the **📚 Trip History** tab to view, update with actual fare, or export.")
+            else:
+                st.info("ℹ️ This prediction is already in Trip History (duplicate detected). No duplicate record was created.")
 
     with col_map:
         m_head_col, m_sel_col = st.columns([1.2, 1.0])
@@ -3007,3 +3216,216 @@ with tab_academic:
                     mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                     use_container_width=True
                 )
+
+
+# =============================================================================
+# TAB 9: TRIP HISTORY (FEATURE #8)
+# =============================================================================
+with tab_history:
+    st.markdown("### My Predictions - Trip History")
+    st.caption(
+        "Persistent local trip history database. Data is stored on this machine only. "
+        "Click Save to Trip History in Live Trip Studio tab after a prediction to add records here."
+    )
+    hc1, hc2, hc3 = st.columns([2, 1.4, 1.4])
+    with hc1:
+        th_search = st.text_input("Search by address", placeholder="Times Square, JFK...", key="th_search_input")
+    with hc2:
+        th_date_from = st.date_input("From date", value=None, key="th_date_from")
+    with hc3:
+        th_date_to = st.date_input("To date", value=None, key="th_date_to")
+    hc4, hc5, hc6, hc7 = st.columns([1.5, 1.2, 1.2, 1.2])
+    with hc4:
+        _avail_models = ["All Models"] + th_distinct_models()
+        th_model_filter = st.selectbox("Model", _avail_models, key="th_model_sel")
+    with hc5:
+        th_actual_filter = st.selectbox("Actual fare", ["All", "Has actual", "No actual"], key="th_actual_sel")
+    with hc6:
+        th_sort = st.selectbox("Sort by", ["Newest first", "Oldest first", "Highest fare", "Lowest fare", "Largest error"], key="th_sort_sel")
+    with hc7:
+        th_min_fare = st.number_input("Min fare ($)", min_value=0.0, value=0.0, step=1.0, key="th_min_fare")
+    _sort_map = {"Newest first": "created_at_desc", "Oldest first": "created_at_asc", "Highest fare": "predicted_fare_desc", "Lowest fare": "predicted_fare_asc", "Largest error": "absolute_error_desc"}
+    _actual_map = {"All": None, "Has actual": True, "No actual": False}
+    th_rows = th_fetch_all(
+        search=th_search if th_search else None,
+        date_from=th_date_from.isoformat() if th_date_from else None,
+        date_to=th_date_to.isoformat() if th_date_to else None,
+        model_name=None if th_model_filter == "All Models" else th_model_filter,
+        has_actual=_actual_map[th_actual_filter],
+        min_fare=th_min_fare if th_min_fare > 0 else None,
+        sort_by=_sort_map[th_sort],
+    )
+    _today_str = datetime.date.today().isoformat()
+    _n_rows = len(th_rows)
+    st.markdown(f"**{_n_rows} record{'s' if _n_rows != 1 else ''}** matching filters.")
+    if th_rows:
+        _csv_bytes = th_export_csv(th_rows)
+        st.download_button(label=f"Export CSV ({_n_rows} records)", data=_csv_bytes, file_name=f"trip_history_{_today_str}.csv", mime="text/csv", key="th_export_btn")
+    st.markdown("---")
+    if not th_rows:
+        st.info("No trip predictions yet. Make a prediction in Live Trip Studio, then click Save to Trip History.")
+    else:
+        if "th_confirm_delete_id" not in st.session_state:
+            st.session_state["th_confirm_delete_id"] = None
+        for row in th_rows:
+            row_id = row["id"]
+            _p_addr = row.get("pickup_address") or "Unknown pickup"
+            _d_addr = row.get("dropoff_address") or "Unknown drop-off"
+            _created = row.get("created_at", "")[:10]
+            _pred = row.get("predicted_fare", 0.0) or 0.0
+            _actual = row.get("actual_fare")
+            _dist = row.get("distance_km")
+            _model_n = row.get("model_name", "DNN")
+            _abs_err = row.get("absolute_error")
+            _rel_err = row.get("relative_error")
+            actual_str = f"${_actual:.2f}" if _actual is not None else "--"
+            dist_str = f"{_dist:.2f} km" if _dist is not None else "--"
+            err_str = (f"${_abs_err:.2f} ({_rel_err*100:.1f}%)" if (_abs_err is not None and _rel_err is not None) else (f"${_abs_err:.2f}" if _abs_err is not None else "--"))
+            _p_s = _p_addr[:55] + ("..." if len(_p_addr) > 55 else "")
+            _d_s = _d_addr[:55] + ("..." if len(_d_addr) > 55 else "")
+            _hc = "#38BDF8" if is_night_theme else "#2563EB"
+            _tc = "#F1F5F9" if is_night_theme else "#0F172A"
+            _sc = "#94A3B8" if is_night_theme else "#64748B"
+            _gc = "#10B981" if is_night_theme else "#16A34A"
+            _bc = "#38BDF8" if is_night_theme else "#2563EB"
+            _card_html = (
+                f'<div style="background:{card_bg};border:1px solid {card_border};border-radius:14px;'
+                f'padding:1rem 1.25rem;margin-bottom:0.5rem;box-shadow:0 2px 8px rgba(0,0,0,0.05);">'
+                f'<b style="font-size:0.75rem;color:{_hc};">#{row_id} | {_created} | {_model_n}</b><br>'
+                f'<span style="font-size:0.95rem;font-weight:700;color:{_tc};">{_p_s} &rarr; {_d_s}</span><br>'
+                f'<span style="font-size:0.83rem;color:{_sc};">'
+                f'Distance: {dist_str} | Predicted: <b style="color:{_gc};">${_pred:.2f}</b> | '
+                f'Actual: <b style="color:{_bc};">{actual_str}</b> | Error: {err_str}'
+                f'</span></div>'
+            )
+            st.markdown(_card_html, unsafe_allow_html=True)
+            bc1, bc2, bc3 = st.columns([1, 1, 2])
+            with bc1:
+                with st.expander(f"Details #{row_id}", expanded=False):
+                    st.write({"id": row_id, "pickup": _p_addr, "dropoff": _d_addr, "predicted_fare": _pred, "actual_fare": _actual, "absolute_error": _abs_err, "relative_error": _rel_err, "distance_km": row.get("distance_km"), "road_distance_km": row.get("road_distance_km"), "passengers": row.get("passenger_count"), "pickup_datetime": row.get("pickup_datetime"), "weather": row.get("weather_summary"), "traffic": row.get("traffic_summary")})
+            with bc2:
+                if st.session_state.get("th_confirm_delete_id") == row_id:
+                    st.warning("Confirm deletion?")
+                    cc1, cc2 = st.columns(2)
+                    with cc1:
+                        if st.button("Yes", key=f"th_del_yes_{row_id}"):
+                            th_delete(row_id)
+                            st.session_state["th_confirm_delete_id"] = None
+                            st.rerun()
+                    with cc2:
+                        if st.button("Cancel", key=f"th_del_no_{row_id}"):
+                            st.session_state["th_confirm_delete_id"] = None
+                            st.rerun()
+                else:
+                    if st.button("Delete", key=f"th_del_btn_{row_id}"):
+                        st.session_state["th_confirm_delete_id"] = row_id
+                        st.rerun()
+            with bc3:
+                with st.expander(f"Enter Actual Fare #{row_id}", expanded=False):
+                    actual_in = st.number_input("Actual Fare ($)", min_value=0.0, max_value=500.0, value=float(_actual) if _actual is not None else 0.0, step=0.50, format="%.2f", key=f"th_actual_input_{row_id}")
+                    if st.button("Save Actual Fare", key=f"th_save_actual_{row_id}"):
+                        if actual_in > 0:
+                            th_update_actual_fare(row_id, actual_in)
+                            st.success(f"Saved actual=${actual_in:.2f} for #{row_id}")
+                            st.rerun()
+                        else:
+                            st.warning("Enter a positive actual fare.")
+
+
+# =============================================================================
+# TAB 10: FEEDBACK SYSTEM (FEATURE #9)
+# =============================================================================
+with tab_feedback:
+    st.markdown("### Prediction vs Actual Fare - Feedback & Performance Dashboard")
+    st.caption("All metrics calculated from your personal trip records, not the official test dataset.")
+    with st.expander("Academic Distinction: User Feedback vs. Official Model Evaluation", expanded=False):
+        st.markdown(
+            "**A. Official Model Evaluation (Test Set):** MAE=$1.57 | RMSE=$3.31 | R2=0.8734 (on 144,021 records)\n\n"
+            "**B. Your Real-World Trip Feedback:** Computed from actual fares you enter. NOT the official test dataset."
+        )
+    _fb_metrics = th_compute_metrics()
+    _fb_rows_actual = th_fetch_all(has_actual=True, limit=10000)
+    if not _fb_metrics:
+        st.info("Insufficient feedback data. Need at least 2 predictions with actual fares. Go to Trip History and enter actual fares.")
+    else:
+        st.markdown("#### Your Model Performance Metrics")
+        fm_c1, fm_c2, fm_c3, fm_c4, fm_c5 = st.columns(5)
+        fm_c1.metric("Records w/ Actual", str(_fb_metrics["n_with_actual"]))
+        fm_c2.metric("MAE", f"${_fb_metrics['mae']:.2f}")
+        fm_c3.metric("Median AE", f"${_fb_metrics['median_ae']:.2f}")
+        fm_c4.metric("RMSE", f"${_fb_metrics['rmse']:.2f}")
+        r2_v = _fb_metrics.get("r2")
+        fm_c5.metric("R2", f"{r2_v:.4f}" if r2_v is not None else "N/A")
+        st.markdown("<br>", unsafe_allow_html=True)
+        fm_c6, fm_c7, fm_c8 = st.columns(3)
+        mape_v = _fb_metrics.get("mape")
+        fm_c6.metric("MAPE", f"{mape_v:.2f}%" if mape_v is not None else "N/A")
+        fm_c7.metric("Over-predictions", str(_fb_metrics.get("n_over", 0)))
+        fm_c8.metric("Under-predictions", str(_fb_metrics.get("n_under", 0)))
+        st.caption("MAPE = mean(abs((actual - predicted) / actual)) x 100. Excludes actual_fare=0. MAPE is NOT accuracy.")
+        st.markdown("---")
+        if len(_fb_rows_actual) >= 3:
+            _pred_arr = [r["predicted_fare"] for r in _fb_rows_actual]
+            _actual_arr = [r["actual_fare"] for r in _fb_rows_actual]
+            _errors_arr = [a - p for a, p in zip(_actual_arr, _pred_arr)]
+            _dates_arr = [r.get("created_at", "")[:10] for r in _fb_rows_actual]
+            _abs_err_arr = [abs(e) for e in _errors_arr]
+            viz_c1, viz_c2 = st.columns(2)
+            with viz_c1:
+                st.markdown("##### Actual vs. Predicted Scatter")
+                st.caption("Points along y=x = perfect prediction. Deviations = under- or over-prediction.")
+                _mn = min(min(_pred_arr), min(_actual_arr)) * 0.9
+                _mx = max(max(_pred_arr), max(_actual_arr)) * 1.05
+                fig_sc = go.Figure()
+                fig_sc.add_trace(go.Scatter(x=_actual_arr, y=_pred_arr, mode="markers", marker=dict(size=9, color="#38BDF8" if is_night_theme else "#2563EB", opacity=0.75), text=[f"Pred:${p:.2f}|Actual:${a:.2f}" for p, a in zip(_pred_arr, _actual_arr)], hovertemplate="%{text}<extra></extra>", name="Predictions"))
+                fig_sc.add_trace(go.Scatter(x=[_mn, _mx], y=[_mn, _mx], mode="lines", line=dict(color="#F59E0B", dash="dash", width=1.5), name="Perfect (y=x)"))
+                fig_sc.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font=dict(color=chart_font_color, size=11), xaxis=dict(title="Actual Fare ($)", gridcolor=chart_grid_color), yaxis=dict(title="Predicted Fare ($)", gridcolor=chart_grid_color), height=310, margin=dict(l=40, r=20, t=25, b=40))
+                st.plotly_chart(fig_sc, use_container_width=True)
+            with viz_c2:
+                st.markdown("##### Error Distribution")
+                st.caption("Distribution of (Actual - Predicted). Symmetric around 0 is ideal.")
+                fig_hist = go.Figure()
+                fig_hist.add_trace(go.Histogram(x=_errors_arr, nbinsx=min(20, max(5, len(_errors_arr) // 2)), marker_color="#10B981" if is_night_theme else "#16A34A", opacity=0.78))
+                fig_hist.add_vline(x=0, line_dash="dash", line_color="#F59E0B", line_width=2)
+                fig_hist.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font=dict(color=chart_font_color, size=11), xaxis=dict(title="Actual - Predicted ($)", gridcolor=chart_grid_color), yaxis=dict(title="Count", gridcolor=chart_grid_color), height=310, margin=dict(l=40, r=20, t=25, b=40), showlegend=False)
+                st.plotly_chart(fig_hist, use_container_width=True)
+            st.markdown("##### Absolute Error Over Time")
+            st.caption("Higher points = larger error on that trip.")
+            fig_t = go.Figure()
+            fig_t.add_trace(go.Scatter(x=_dates_arr, y=_abs_err_arr, mode="lines+markers", line=dict(color="#38BDF8" if is_night_theme else "#2563EB", width=2), marker=dict(size=6, color="#F59E0B")))
+            fig_t.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font=dict(color=chart_font_color, size=11), xaxis=dict(title="Trip Date", gridcolor=chart_grid_color), yaxis=dict(title="Absolute Error ($)", gridcolor=chart_grid_color), height=240, margin=dict(l=40, r=20, t=25, b=40))
+            st.plotly_chart(fig_t, use_container_width=True)
+        else:
+            st.info(f"Visualizations need at least 3 trips with actual fares. Currently: {len(_fb_rows_actual)}.")
+        st.markdown("---")
+        st.markdown("#### Individual Trip: Prediction vs Actual")
+        _ids_actual = [r["id"] for r in _fb_rows_actual]
+        if _ids_actual:
+            def _fmt_trip(rid):
+                r = th_fetch_by_id(rid) or {}
+                return f"#{rid} | {r.get('created_at','')[:10]} | Pred:${r.get('predicted_fare',0):.2f} | Act:${r.get('actual_fare',0):.2f}"
+            _sel_id = st.selectbox("Select a trip", _ids_actual, format_func=_fmt_trip, key="fb_sel_trip")
+            _sel_row = th_fetch_by_id(_sel_id)
+            if _sel_row:
+                _p = _sel_row.get("predicted_fare", 0.0) or 0.0
+                _a = _sel_row.get("actual_fare", 0.0) or 0.0
+                _dif = _a - _p
+                _ae = abs(_dif)
+                _re = (_ae / abs(_a) * 100) if _a != 0 else None
+                _dir = "Over-prediction" if _p > _a else ("Under-prediction" if _p < _a else "Exact match")
+                fb_d1, fb_d2, fb_d3, fb_d4 = st.columns(4)
+                fb_d1.metric("Predicted", f"${_p:.2f}")
+                fb_d2.metric("Actual", f"${_a:.2f}")
+                fb_d3.metric("Difference", f"${_dif:+.2f}")
+                fb_d4.metric("Absolute Error", f"${_ae:.2f}")
+                _re_str = f"{_re:.2f}%" if _re is not None else "N/A (actual=$0)"
+                _pk = (_sel_row.get("pickup_address") or "")[:60]
+                _dk = (_sel_row.get("dropoff_address") or "")[:60]
+                st.markdown(f"**Direction:** {_dir}  \n**Relative Error:** {_re_str}  \n**Route:** {_pk} -> {_dk}")
+        st.markdown("---")
+        st.markdown("#### Export Feedback Dataset")
+        st.caption("Export all records with actual fares. Do NOT auto-retrain the production DNN.")
+        if _fb_rows_actual:
+            _feedback_csv = th_export_csv(_fb_rows_actual)
+            st.download_button(label=f"Export Feedback Dataset ({len(_fb_rows_actual)} records)", data=_feedback_csv, file_name=f"feedback_dataset_{datetime.date.today().isoformat()}.csv", mime="text/csv", key="fb_export_btn")
+            st.info(f"Feedback collected: {len(_fb_rows_actual)} trips. This can support future model refinement after independent evaluation.")
