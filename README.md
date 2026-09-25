@@ -83,6 +83,9 @@ nyc_taxi_fare_dnn_assignment/
 │   └── model_comparison.csv               # Unified Multi-Model Benchmark Comparison Table
 │
 ├── saved_models/
+│   ├── taxi_fare_dnn.pt                   # Trained PyTorch Deep Neural Network Weights (~69 KB)
+│   ├── taxi_fare_scaler.pkl               # Fitted Scikit-Learn StandardScaler Object (~1.3 KB)
+│   ├── baseline_models.pkl                # Trained LightGBM & Baseline Models (~723 KB)
 │   └── feature_metadata.json              # 33 Feature Column Definitions & Input Schema
 │
 ├── src/
@@ -112,7 +115,7 @@ nyc_taxi_fare_dnn_assignment/
 │   ├── 14_residual_distribution.png
 │   └── 15_model_comparison_bar.png
 │
-├── .gitignore                             # Git configuration ignoring heavy local assets & data
+├── .gitignore                             # Git configuration ignoring heavy raw data & local docs
 ├── build_complete_lab_record.py           # Master Script Generating Word (.docx) & PDF Reports
 ├── LICENSE                                # MIT Open-Source License
 ├── make_notebook.py                       # Python Notebook Compiler Script
@@ -121,7 +124,7 @@ nyc_taxi_fare_dnn_assignment/
 ```
 
 > [!NOTE]
-> Heavy artifacts—including raw Kaggle datasets (`dataset/`, `data/`), binary model weights (`*.pt`, `*.pkl`), academic report documents (`*.docx`, `*.pdf`), and local UI screenshots—are ignored via `.gitignore` to keep the repository lightweight and standards-compliant.
+> Heavy artifacts—including raw Kaggle datasets (`dataset/`, `data/`), academic report documents (`*.docx`, `*.pdf`), and local UI screenshots—are ignored via `.gitignore` to keep the repository clean, while production model weights (`taxi_fare_dnn.pt`, `taxi_fare_scaler.pkl`, `baseline_models.pkl`) are tracked directly for instant 1-click Streamlit Cloud deployment.
 
 ---
 

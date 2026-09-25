@@ -9,10 +9,9 @@ data/
 *.zip
 *.tar.gz
 
-# Model weights and scalers
-saved_models/*.pt
-saved_models/*.pkl
+# Model weights and scalers (Production deployment models are tracked)
 saved_models/*.onnx
+saved_models/*_improved.*
 
 # Academic Reports and Artifacts
 *.docx
