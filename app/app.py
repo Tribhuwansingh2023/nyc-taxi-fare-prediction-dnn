@@ -57,17 +57,37 @@ st.set_page_config(
 )
 
 # =============================================================================
-# HIGH-END GLASSMORPHISM DARK-MODE STYLING SYSTEM
+# DAY / NIGHT DISPLAY THEME CONTROLLER
 # =============================================================================
-st.markdown("""
-<style>
-    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700;800&display=swap');
-    
-    html, body, [class*="css"] {
-        font-family: 'Outfit', sans-serif;
-    }
-    
-    /* Main Background Accent */
+if "is_night_theme" not in st.session_state:
+    st.session_state["is_night_theme"] = True
+
+st.sidebar.markdown("### 🌓 Display Theme")
+is_night_theme = st.sidebar.toggle(
+    "🌙 Cyber Night Mode" if st.session_state["is_night_theme"] else "☀️ Sunlit Day Mode",
+    value=st.session_state["is_night_theme"],
+    key="is_night_theme_toggle",
+    help="Toggle between High-End Cyber Dark (Night) Mode and Crisp Modern Sunlit (Day) Mode."
+)
+st.session_state["is_night_theme"] = is_night_theme
+st.sidebar.markdown("---")
+
+# Dynamic Theme Tokens
+chart_font_color = "#F1F5F9" if is_night_theme else "#0F172A"
+chart_grid_color = "#1E293B" if is_night_theme else "#CBD5E1"
+chart_gauge_bg = "rgba(15, 23, 42, 0.6)" if is_night_theme else "#F8FAFC"
+chart_gauge_border = "#334155" if is_night_theme else "#CBD5E1"
+card_bg = "rgba(15, 23, 42, 0.85)" if is_night_theme else "#FFFFFF"
+card_border = "rgba(255, 255, 255, 0.1)" if is_night_theme else "#CBD5E1"
+card_text = "#94A3B8" if is_night_theme else "#475569"
+radar_polar_bg = "rgba(15, 23, 42, 0.6)" if is_night_theme else "#F8FAFC"
+radar_grid_color = "#334155" if is_night_theme else "#CBD5E1"
+map_theme_pdk = pdk.map_styles.CARTO_DARK if is_night_theme else pdk.map_styles.CARTO_LIGHT
+map_theme_plotly = "carto-darkmatter" if is_night_theme else "carto-positron"
+
+if is_night_theme:
+    theme_css = """
+    /* Main Background Accent - Cyber Night Mode */
     .stApp {
         background: radial-gradient(circle at 12% 15%, rgba(30, 27, 75, 0.40) 0%, transparent 45%),
                     radial-gradient(circle at 88% 22%, rgba(245, 158, 11, 0.12) 0%, transparent 45%),
@@ -320,42 +340,329 @@ st.markdown("""
         box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
         position: relative;
     }
-    .receipt-header {
+    
+    .hub-strip {
+        font-size: 0.85rem;
+        color: #94A3B8;
+        background: rgba(15, 23, 42, 0.65);
+        padding: 0.75rem 1rem;
+        border-radius: 10px;
+        border: 1px solid rgba(255,255,255,0.07);
+        margin-top: 0.5rem;
+    }
+    """
+else:
+    theme_css = """
+    /* Main Background Accent - Sunlit Day Mode */
+    .stApp {
+        background: radial-gradient(circle at 12% 15%, rgba(191, 219, 254, 0.55) 0%, transparent 45%),
+                    radial-gradient(circle at 88% 22%, rgba(254, 240, 138, 0.45) 0%, transparent 45%),
+                    radial-gradient(circle at 50% 80%, rgba(204, 251, 241, 0.45) 0%, transparent 50%),
+                    #F1F5F9;
+        color: #0F172A;
+    }
+    
+    /* Sunlit Light Sidebar Styling */
+    section[data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 50%, #F1F5F9 100%) !important;
+        border-right: 1px solid #CBD5E1 !important;
+        box-shadow: 4px 0 20px rgba(0, 0, 0, 0.05) !important;
+    }
+    section[data-testid="stSidebar"] .stMarkdown, 
+    section[data-testid="stSidebar"] label,
+    section[data-testid="stSidebar"] p {
+        color: #1E293B !important;
+        font-weight: 500 !important;
+    }
+    
+    /* Sidebar Inputs Styling */
+    section[data-testid="stSidebar"] div[data-testid="stSelectbox"] > div,
+    section[data-testid="stSidebar"] div[data-testid="stNumberInput"] > div,
+    section[data-testid="stSidebar"] div[data-testid="stDateInput"] > div,
+    section[data-testid="stSidebar"] div[data-testid="stTimeInput"] > div {
+        background-color: #FFFFFF !important;
+        border: 1px solid #CBD5E1 !important;
+        border-radius: 10px !important;
+        color: #0F172A !important;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+    }
+    
+    /* Hero Header */
+    .hero-banner {
+        background: linear-gradient(135deg, #1E3A8A 0%, #0284C7 50%, #0D9488 100%);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        padding: 2.2rem 2.6rem;
+        border-radius: 22px;
+        color: white;
+        margin-bottom: 1.2rem;
+        border: 1px solid rgba(255, 255, 255, 0.35);
+        box-shadow: 0 20px 40px -10px rgba(2, 132, 199, 0.3), 0 0 25px rgba(14, 165, 233, 0.2);
+        position: relative;
+        overflow: hidden;
+    }
+    .hero-banner::after {
+        content: "";
+        position: absolute;
+        top: 0; right: 0; bottom: 0; width: 35%;
+        background: radial-gradient(circle at 100% 0%, rgba(245, 158, 11, 0.3) 0%, transparent 70%);
+        pointer-events: none;
+    }
+    .hero-banner h1 {
+        font-family: 'Space Grotesk', sans-serif;
+        color: #FFFFFF !important;
+        font-size: 2.45rem;
+        font-weight: 800;
+        margin-bottom: 0.35rem;
+        letter-spacing: -0.03em;
+        text-shadow: 0 2px 14px rgba(0,0,0,0.3);
+    }
+    .hero-banner p {
+        color: #E0F2FE;
+        font-size: 1.05rem;
+        margin-bottom: 0.6rem;
+        max-width: 85%;
+    }
+    
+    .badge-bar {
+        display: flex;
+        gap: 0.6rem;
+        flex-wrap: wrap;
+        margin-top: 0.9rem;
+    }
+    .hero-badge {
+        background: rgba(255, 255, 255, 0.18);
+        border: 1px solid rgba(255, 255, 255, 0.4);
+        padding: 0.35rem 0.85rem;
+        border-radius: 9999px;
+        font-size: 0.82rem;
+        color: #FFFFFF;
+        font-weight: 600;
+        backdrop-filter: blur(8px);
+    }
+    .hero-badge.highlight {
+        background: rgba(254, 243, 199, 0.35);
+        border-color: #F59E0B;
+        color: #FEF3C7;
+        font-weight: 700;
+    }
+    .hero-badge.green {
+        background: rgba(209, 250, 229, 0.35);
+        border-color: #10B981;
+        color: #ECFDF5;
+        font-weight: 700;
+    }
+    
+    /* Live Telemetry Ribbon */
+    .telemetry-strip {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: #FFFFFF;
+        backdrop-filter: blur(12px);
+        border: 1px solid #E2E8F0;
+        border-radius: 12px;
+        padding: 0.65rem 1.2rem;
+        margin-bottom: 1.2rem;
+        font-size: 0.82rem;
+        color: #334155;
+        font-family: 'JetBrains Mono', monospace;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.04);
+    }
+    .pulse-dot {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background-color: #10B981;
+        box-shadow: 0 0 10px #10B981, 0 0 20px #10B981;
+        margin-right: 8px;
+        animation: pulse 1.8s infinite;
+    }
+    
+    /* Glass Cards */
+    .glass-card {
+        background: #FFFFFF;
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border: 1px solid #E2E8F0;
+        border-radius: 16px;
+        padding: 1.2rem 1.4rem;
+        box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.06);
+        transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+    .glass-card:hover {
+        border-color: #0284C7;
+        transform: translateY(-2px);
+        box-shadow: 0 14px 28px -4px rgba(2, 132, 199, 0.18);
+    }
+    
+    .metric-label {
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.09em;
+        color: #64748B;
+        font-weight: 700;
+        margin-bottom: 0.3rem;
+    }
+    .metric-number {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 1.85rem;
+        font-weight: 800;
+        color: #0F172A;
+    }
+    .metric-sub {
+        font-size: 0.8rem;
+        color: #64748B;
+        margin-top: 0.2rem;
+    }
+    
+    /* Glowing Taximeter Display */
+    .taximeter-hud {
+        background: linear-gradient(135deg, #047857 0%, #059669 50%, #10B981 100%);
+        backdrop-filter: blur(16px);
+        border: 1px solid #34D399;
+        border-radius: 20px;
+        padding: 1.8rem 1.6rem;
         text-align: center;
-        border-bottom: 1px dashed rgba(255, 255, 255, 0.2);
+        box-shadow: 0 18px 35px -8px rgba(16, 185, 129, 0.35);
+        position: relative;
+    }
+    .taximeter-title {
+        font-size: 0.88rem;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        font-weight: 700;
+        color: #D1FAE5;
+    }
+    .taximeter-fare {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 3.75rem;
+        font-weight: 800;
+        color: #FFFFFF;
+        margin: 0.15rem 0;
+        text-shadow: 0 3px 14px rgba(0, 0, 0, 0.3);
+        letter-spacing: -0.03em;
+    }
+    .taximeter-ci {
+        font-size: 0.92rem;
+        color: #ECFDF5;
+        background: rgba(0, 0, 0, 0.2);
+        display: inline-block;
+        padding: 0.38rem 0.95rem;
+        border-radius: 20px;
+        border: 1px solid rgba(255, 255, 255, 0.25);
+        font-family: 'JetBrains Mono', monospace;
+    }
+    
+    /* Custom Button Overrides */
+    div[data-testid="stButton"] > button {
+        background: #FFFFFF !important;
+        color: #0F172A !important;
+        border: 1px solid #CBD5E1 !important;
+        border-radius: 12px !important;
+        font-weight: 600 !important;
+        font-size: 0.85rem !important;
+        padding: 0.6rem 0.85rem !important;
+        transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05) !important;
+        text-align: center !important;
+    }
+    div[data-testid="stButton"] > button:hover {
+        background: #F8FAFC !important;
+        border-color: #D97706 !important;
+        color: #B45309 !important;
+        transform: translateY(-2px) !important;
+        box-shadow: 0 6px 18px rgba(217, 119, 6, 0.18) !important;
+    }
+    
+    /* Tabs Custom Styling */
+    button[data-baseweb="tab"] {
+        background-color: transparent !important;
+        border-radius: 8px !important;
+        color: #64748B !important;
+        font-weight: 600 !important;
+        padding: 0.65rem 1.25rem !important;
+        font-family: 'Space Grotesk', sans-serif !important;
+        font-size: 0.95rem !important;
+        transition: all 0.2s ease !important;
+    }
+    button[data-baseweb="tab"][aria-selected="true"] {
+        background: rgba(2, 132, 199, 0.12) !important;
+        color: #0284C7 !important;
+        border-bottom: 2px solid #0284C7 !important;
+    }
+    
+    .receipt-box {
+        background: #FFFFFF;
+        border: 2px dashed #D97706;
+        border-radius: 16px;
+        padding: 1.8rem;
+        font-family: 'JetBrains Mono', monospace;
+        color: #0F172A;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.06);
+        position: relative;
+    }
+    
+    .hub-strip {
+        font-size: 0.85rem;
+        color: #475569;
+        background: #FFFFFF;
+        padding: 0.75rem 1rem;
+        border-radius: 10px;
+        border: 1px solid #E2E8F0;
+        margin-top: 0.5rem;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+    }
+    """
+
+st.markdown(f"""
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700;800&display=swap');
+    
+    html, body, [class*="css"] {{
+        font-family: 'Outfit', sans-serif;
+    }}
+    
+    {theme_css}
+    
+    .receipt-header {{
+        text-align: center;
+        border-bottom: 1px dashed rgba(148, 163, 184, 0.3);
         padding-bottom: 1rem;
         margin-bottom: 1rem;
-    }
-    .receipt-line {
+    }}
+    .receipt-line {{
         display: flex;
         justify-content: space-between;
         margin: 0.4rem 0;
         font-size: 0.88rem;
-    }
-    .receipt-total {
-        border-top: 2px solid rgba(255, 255, 255, 0.3);
+    }}
+    .receipt-total {{
+        border-top: 2px solid rgba(148, 163, 184, 0.4);
         margin-top: 1rem;
         padding-top: 0.8rem;
         display: flex;
         justify-content: space-between;
         font-size: 1.25rem;
         font-weight: 800;
-        color: #FDE68A;
-    }
+        color: #D97706;
+    }}
     
     /* Surcharge LED Indicator */
-    .status-led {
+    .status-led {{
         display: inline-block;
         width: 8px;
         height: 8px;
         border-radius: 50%;
         margin-right: 6px;
-    }
-    .led-green { background-color: #10B981; box-shadow: 0 0 8px #10B981; }
-    .led-amber { background-color: #F59E0B; box-shadow: 0 0 8px #F59E0B; }
-    .led-red { background-color: #EF4444; box-shadow: 0 0 8px #EF4444; }
+    }}
+    .led-green {{ background-color: #10B981; box-shadow: 0 0 8px #10B981; }}
+    .led-amber {{ background-color: #F59E0B; box-shadow: 0 0 8px #F59E0B; }}
+    .led-red {{ background-color: #EF4444; box-shadow: 0 0 8px #EF4444; }}
 </style>
 """, unsafe_allow_html=True)
+
 
 # Predefined NYC Landmarks
 NYC_LANDMARKS = {
@@ -495,7 +802,8 @@ scaler, dnn_model, baselines = load_models_and_scaler()
 # =============================================================================
 # HERO HEADER BANNER
 # =============================================================================
-st.markdown("""
+theme_mode_badge = "🌙 Cyber Night Mode" if is_night_theme else "☀️ Sunlit Day Mode"
+st.markdown(f"""
 <div class="hero-banner">
     <h1>🚖 NYC Taxi Fare Intelligence Studio</h1>
     <p>High-Resolution Geodesic & Temporal Deep Feedforward Neural Network (PyTorch MLP) with Huber Robust Loss Formulation</p>
@@ -505,16 +813,16 @@ st.markdown("""
         <span class="hero-badge green">⚡ PyTorch Deep Neural Network</span>
         <span class="hero-badge">🎯 Huber Loss (δ=1.0)</span>
         <span class="hero-badge">🗺️ Geodesic & Cyclical Features</span>
-        <span class="hero-badge">🚀 Production Streamlit Cloud</span>
+        <span class="hero-badge highlight">🌓 {theme_mode_badge}</span>
     </div>
 </div>
 """, unsafe_allow_html=True)
 
 # Live Telemetry Ribbon
-st.markdown("""
+st.markdown(f"""
 <div class="telemetry-strip">
     <div><span class="pulse-dot"></span><b>INFERENCE ENGINE ONLINE</b> &nbsp;|&nbsp; PyTorch DNN (17,921 Weights)</div>
-    <div>Hardware: <b>CPU / AVX2 Inlined</b> &nbsp;|&nbsp; Latency: <b>~1.4 ms</b> &nbsp;|&nbsp; Rate Rule: <b>NYC TLC 2025 Standard</b></div>
+    <div>Hardware: <b>CPU / AVX2 Inlined</b> &nbsp;|&nbsp; Latency: <b>~1.4 ms</b> &nbsp;|&nbsp; Display: <b>{'🌙 Night Mode' if is_night_theme else '☀️ Day Mode'}</b> &nbsp;|&nbsp; Rate: <b>NYC TLC 2025</b></div>
 </div>
 """, unsafe_allow_html=True)
 
@@ -765,7 +1073,7 @@ with m_cols[2]:
     st.markdown(f"""
     <div class="glass-card">
         <div class="metric-label">Congestion Surcharge</div>
-        <div style="font-size: 1.15rem; font-weight: 700; color: #F1F5F9; margin: 0.3rem 0;">{surch_badge}</div>
+        <div style="font-size: 1.15rem; font-weight: 700; color: {'#F1F5F9' if is_night_theme else '#0F172A'}; margin: 0.3rem 0;">{surch_badge}</div>
         <div class="metric-sub">{surch_sub}</div>
     </div>
     """, unsafe_allow_html=True)
@@ -826,14 +1134,14 @@ with tab_main:
     # Multi-Model Comparison Strip if toggled
     if toggle_quick_compare:
         st.markdown(f"""
-        <div style="display: flex; gap: 0.8rem; flex-wrap: wrap; margin: 0.6rem 0 1rem 0; padding: 0.8rem 1.2rem; background: rgba(15, 23, 42, 0.85); border-radius: 14px; border: 1px solid rgba(56, 189, 248, 0.3); align-items: center; justify-content: space-between;">
-            <div><span style="color: #94A3B8; font-size: 0.72rem; text-transform: uppercase; font-weight: 700;">PyTorch DNN:</span> <b style="color: #10B981; font-size: 1.15rem; font-family: 'JetBrains Mono';">${pred_fare:.2f}</b></div>
-            <div style="border-left: 1px solid rgba(255,255,255,0.1); height: 22px;"></div>
-            <div><span style="color: #94A3B8; font-size: 0.72rem; text-transform: uppercase; font-weight: 700;">LightGBM:</span> <b style="color: #38BDF8; font-size: 1.15rem; font-family: 'JetBrains Mono';">${lgb_pred:.2f}</b> <span style="font-size: 0.75rem; color: {'#10B981' if lgb_pred <= pred_fare else '#EF4444'};">({lgb_pred - pred_fare:+.2f})</span></div>
-            <div style="border-left: 1px solid rgba(255,255,255,0.1); height: 22px;"></div>
-            <div><span style="color: #94A3B8; font-size: 0.72rem; text-transform: uppercase; font-weight: 700;">Linear OLS:</span> <b style="color: #F59E0B; font-size: 1.15rem; font-family: 'JetBrains Mono';">${lr_pred:.2f}</b> <span style="font-size: 0.75rem; color: {'#10B981' if lr_pred <= pred_fare else '#EF4444'};">({lr_pred - pred_fare:+.2f})</span></div>
-            <div style="border-left: 1px solid rgba(255,255,255,0.1); height: 22px;"></div>
-            <div><span style="color: #94A3B8; font-size: 0.72rem; text-transform: uppercase; font-weight: 700;">TLC Regulatory:</span> <b style="color: #E2E8F0; font-size: 1.15rem; font-family: 'JetBrains Mono';">${est_rule_fare:.2f}</b> <span style="font-size: 0.75rem; color: {'#10B981' if est_rule_fare <= pred_fare else '#EF4444'};">({est_rule_fare - pred_fare:+.2f})</span></div>
+        <div style="display: flex; gap: 0.8rem; flex-wrap: wrap; margin: 0.6rem 0 1rem 0; padding: 0.8rem 1.2rem; background: {card_bg}; border-radius: 14px; border: 1px solid {card_border}; box-shadow: 0 4px 14px rgba(0,0,0,0.05); align-items: center; justify-content: space-between;">
+            <div><span style="color: {card_text}; font-size: 0.72rem; text-transform: uppercase; font-weight: 700;">PyTorch DNN:</span> <b style="color: #10B981; font-size: 1.15rem; font-family: 'JetBrains Mono';">${pred_fare:.2f}</b></div>
+            <div style="border-left: 1px solid {card_border}; height: 22px;"></div>
+            <div><span style="color: {card_text}; font-size: 0.72rem; text-transform: uppercase; font-weight: 700;">LightGBM:</span> <b style="color: #38BDF8; font-size: 1.15rem; font-family: 'JetBrains Mono';">${lgb_pred:.2f}</b> <span style="font-size: 0.75rem; color: {'#10B981' if lgb_pred <= pred_fare else '#EF4444'};">({lgb_pred - pred_fare:+.2f})</span></div>
+            <div style="border-left: 1px solid {card_border}; height: 22px;"></div>
+            <div><span style="color: {card_text}; font-size: 0.72rem; text-transform: uppercase; font-weight: 700;">Linear OLS:</span> <b style="color: #F59E0B; font-size: 1.15rem; font-family: 'JetBrains Mono';">${lr_pred:.2f}</b> <span style="font-size: 0.75rem; color: {'#10B981' if lr_pred <= pred_fare else '#EF4444'};">({lr_pred - pred_fare:+.2f})</span></div>
+            <div style="border-left: 1px solid {card_border}; height: 22px;"></div>
+            <div><span style="color: {card_text}; font-size: 0.72rem; text-transform: uppercase; font-weight: 700;">TLC Regulatory:</span> <b style="color: {'#E2E8F0' if is_night_theme else '#0F172A'}; font-size: 1.15rem; font-family: 'JetBrains Mono';">${est_rule_fare:.2f}</b> <span style="font-size: 0.75rem; color: {'#10B981' if est_rule_fare <= pred_fare else '#EF4444'};">({est_rule_fare - pred_fare:+.2f})</span></div>
         </div>
         """, unsafe_allow_html=True)
 
@@ -857,8 +1165,8 @@ with tab_main:
                 fig_diag.update_layout(
                     paper_bgcolor='rgba(0,0,0,0)',
                     plot_bgcolor='rgba(0,0,0,0)',
-                    font=dict(color='#F1F5F9', size=11),
-                    yaxis=dict(gridcolor='#1E293B', title="Mean Activation Value"),
+                    font=dict(color=chart_font_color, size=11),
+                    yaxis=dict(gridcolor=chart_grid_color, title="Mean Activation Value"),
                     xaxis=dict(title=""),
                     margin=dict(l=20, r=20, t=25, b=20),
                     height=190
@@ -866,7 +1174,7 @@ with tab_main:
                 st.plotly_chart(fig_diag, use_container_width=True)
             with col_diag2:
                 st.markdown(f"""
-                <div style="background: rgba(15, 23, 42, 0.7); padding: 0.9rem 1.1rem; border-radius: 12px; border: 1px solid rgba(255,255,255,0.08); font-size: 0.82rem;">
+                <div style="background: {card_bg}; padding: 0.9rem 1.1rem; border-radius: 12px; border: 1px solid {card_border}; font-size: 0.82rem; color: {chart_font_color}; box-shadow: 0 4px 12px rgba(0,0,0,0.04);">
                     <div>⚡ <b>Inference Latency:</b> <code style="color: #38BDF8;">{infer_duration_ms:.2f} ms</code></div>
                     <div style="margin-top: 0.35rem;">🎯 <b>L1 Active Neurons:</b> <code>{layer_activations.get('L1_active_pct', 0):.1f}%</code> (Sparsity: {100 - layer_activations.get('L1_active_pct', 0):.1f}%)</div>
                     <div style="margin-top: 0.35rem;">🎯 <b>L2 Active Neurons:</b> <code>{layer_activations.get('L2_active_pct', 0):.1f}%</code> (Sparsity: {100 - layer_activations.get('L2_active_pct', 0):.1f}%)</div>
@@ -902,14 +1210,14 @@ with tab_main:
             mode="gauge+number",
             value=meter_display_fare,
             domain={'x': [0, 1], 'y': [0, 1]},
-            title={'text': "Dynamic Fare Meter ($ USD)", 'font': {'size': 14, 'color': '#94A3B8'}},
-            number={'prefix': "$", 'font': {'size': 28, 'color': '#F8FAFC', 'family': 'JetBrains Mono'}},
+            title={'text': "Dynamic Fare Meter ($ USD)", 'font': {'size': 14, 'color': '#94A3B8' if is_night_theme else '#475569'}},
+            number={'prefix': "$", 'font': {'size': 28, 'color': '#F8FAFC' if is_night_theme else '#0F172A', 'family': 'JetBrains Mono'}},
             gauge={
-                'axis': {'range': [0, max(85, meter_display_fare * 1.3)], 'tickwidth': 1, 'tickcolor': "#475569"},
+                'axis': {'range': [0, max(85, meter_display_fare * 1.3)], 'tickwidth': 1, 'tickcolor': chart_grid_color},
                 'bar': {'color': "#10B981", 'thickness': 0.32},
-                'bgcolor': "rgba(15, 23, 42, 0.6)",
+                'bgcolor': chart_gauge_bg,
                 'borderwidth': 1,
-                'bordercolor': "#334155",
+                'bordercolor': chart_gauge_border,
                 'steps': [
                     {'range': [0, 15], 'color': 'rgba(56, 189, 248, 0.25)'},
                     {'range': [15, 45], 'color': 'rgba(245, 158, 11, 0.25)'},
@@ -954,7 +1262,7 @@ with tab_main:
         with m_sel_col:
             map_mode = st.radio(
                 "Map Engine",
-                ["3D Night Flight Deck (PyDeck)", "2D Cyber Grid (Plotly)"],
+                ["3D Flight Deck (PyDeck)", "2D Dynamic Grid (Plotly)"],
                 horizontal=True,
                 label_visibility="collapsed"
             )
@@ -964,7 +1272,7 @@ with tab_main:
             {"lat": d_lat, "lon": d_lon, "name": "Drop-off Point", "color": [239, 68, 68, 240]}
         ])
         
-        if map_mode == "3D Night Flight Deck (PyDeck)" and PYDECK_AVAILABLE:
+        if "PyDeck" in map_mode and PYDECK_AVAILABLE:
             mid_lat = (p_lat + d_lat) / 2.0
             mid_lon = (p_lon + d_lon) / 2.0
             
@@ -1015,19 +1323,19 @@ with tab_main:
                 layers=deck_layers,
                 initial_view_state=view_state,
                 tooltip={"text": "{name}\nLat: {lat}\nLon: {lon}"},
-                map_style=pdk.map_styles.CARTO_DARK
+                map_style=map_theme_pdk
             )
             st.pydeck_chart(deck, use_container_width=True)
             
         else:
-            # High-Resolution Plotly Carto Dark Matter Map
+            # High-Resolution Plotly Map
             fig_map = go.Figure()
             # Add trajectory line
             fig_map.add_trace(go.Scattermapbox(
                 lat=[p_lat, d_lat],
                 lon=[p_lon, d_lon],
                 mode="lines",
-                line=dict(width=4, color="#38BDF8"),
+                line=dict(width=4, color="#38BDF8" if is_night_theme else "#0284C7"),
                 name="Geodesic Route"
             ))
             # Add Pickup marker
@@ -1055,7 +1363,7 @@ with tab_main:
             mid_lon = (p_lon + d_lon) / 2.0
             fig_map.update_layout(
                 mapbox=dict(
-                    style="carto-darkmatter",
+                    style=map_theme_plotly,
                     center=dict(lat=mid_lat, lon=mid_lon),
                     zoom=10.5
                 ),
@@ -1068,7 +1376,7 @@ with tab_main:
             st.plotly_chart(fig_map, use_container_width=True)
             
         st.markdown(f"""
-        <div style="font-size: 0.85rem; color: #94A3B8; background: rgba(15, 23, 42, 0.65); padding: 0.75rem 1rem; border-radius: 10px; border: 1px solid rgba(255,255,255,0.07); margin-top: 0.5rem;">
+        <div style="font-size: 0.85rem; color: {'#94A3B8' if is_night_theme else '#475569'}; background: {card_bg}; padding: 0.75rem 1rem; border-radius: 10px; border: 1px solid {card_border}; margin-top: 0.5rem; box-shadow: 0 2px 6px rgba(0,0,0,0.04);">
             🧭 <b>Azimuth Compass Heading:</b> <code>{bearing_deg:.1f}° ({compass_str})</code> &nbsp;|&nbsp; 
             🛫 <b>Hub Proximity:</b> JFK: <b>{feat_df['dropoff_JFK_dist'].iloc[0]:.1f}km</b> • LGA: <b>{feat_df['dropoff_LGA_dist'].iloc[0]:.1f}km</b> • EWR: <b>{feat_df['dropoff_EWR_dist'].iloc[0]:.1f}km</b>
         </div>
@@ -1109,8 +1417,8 @@ with tab_battle:
         fig_battle.update_layout(
             paper_bgcolor='rgba(0,0,0,0)',
             plot_bgcolor='rgba(0,0,0,0)',
-            font=dict(color='#F1F5F9'),
-            xaxis=dict(gridcolor='#1E293B', title="Estimated Fare ($ USD)"),
+            font=dict(color=chart_font_color),
+            xaxis=dict(gridcolor=chart_grid_color, title="Estimated Fare ($ USD)"),
             yaxis=dict(autorange="reversed", title=""),
             margin=dict(l=20, r=40, t=20, b=20),
             height=280
@@ -1146,11 +1454,11 @@ with tab_battle:
         
         fig_radar.update_layout(
             polar=dict(
-                radialaxis=dict(visible=True, range=[0, 1], gridcolor='#334155'),
-                bgcolor='rgba(15, 23, 42, 0.6)'
+                radialaxis=dict(visible=True, range=[0, 1], gridcolor=radar_grid_color),
+                bgcolor=radar_polar_bg
             ),
             paper_bgcolor='rgba(0,0,0,0)',
-            font=dict(color='#F1F5F9', size=10),
+            font=dict(color=chart_font_color, size=10),
             margin=dict(l=30, r=30, t=25, b=25),
             height=280,
             showlegend=True,
@@ -1202,9 +1510,9 @@ with tab_whatif:
         fig_sim.update_layout(
             paper_bgcolor='rgba(0,0,0,0)',
             plot_bgcolor='rgba(0,0,0,0)',
-            font=dict(color='#F1F5F9'),
-            xaxis=dict(gridcolor='#1E293B', tickmode='linear', tick0=0, dtick=2),
-            yaxis=dict(gridcolor='#1E293B'),
+            font=dict(color=chart_font_color),
+            xaxis=dict(gridcolor=chart_grid_color, tickmode='linear', tick0=0, dtick=2),
+            yaxis=dict(gridcolor=chart_grid_color),
             margin=dict(l=20, r=20, t=40, b=20),
             height=320
         )
@@ -1419,9 +1727,9 @@ with tab_theory:
     fig_loss.update_layout(
         paper_bgcolor='rgba(0,0,0,0)',
         plot_bgcolor='rgba(0,0,0,0)',
-        font=dict(color='#F1F5F9'),
-        xaxis=dict(gridcolor='#1E293B', title="Prediction Residual Error: y - ŷ ($)"),
-        yaxis=dict(gridcolor='#1E293B', title="Loss Penalty Value", range=[0, 8]),
+        font=dict(color=chart_font_color),
+        xaxis=dict(gridcolor=chart_grid_color, title="Prediction Residual Error: y - ŷ ($)"),
+        yaxis=dict(gridcolor=chart_grid_color, title="Loss Penalty Value", range=[0, 8]),
         margin=dict(l=20, r=20, t=30, b=20),
         height=320,
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
