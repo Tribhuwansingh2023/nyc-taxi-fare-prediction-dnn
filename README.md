@@ -23,6 +23,7 @@ An end-to-end deep learning engineering pipeline designed to predict NYC Yellow 
   - [3. Full Academic Report Generator (Word & PDF)](#3-build-academic-lab-records)
   - [4. Recompile the Jupyter Notebook](#4-compile-the-end-to-end-notebook)
 - [Key Features & Feature Engineering (33 Features)](#-feature-engineering-pipeline-33-features)
+- [Address Geocoding Engine](#-address-geocoding-engine)
 - [Deep Neural Network Architecture](#-deep-neural-network-architecture)
 - [Experimental Benchmarks & Results](#-experimental-benchmarks--model-comparison)
 - [Visualizations Gallery](#-visualizations-gallery)
@@ -177,7 +178,7 @@ streamlit run app/app.py
 Open your browser at `http://localhost:8501`.
 
 ### 2. Run Automated Test Suite
-Execute the automated 4-scenario deployment verification suite to validate inference accuracy against real-world test cases:
+Execute the automated 10-scenario deployment and address geocoding verification suite to validate inference accuracy and address resolution against real-world test cases:
 ```bash
 python app/test_deployment.py
 ```
@@ -189,19 +190,43 @@ RUNNING AUTOMATED DEPLOYMENT AND INFERENCE VERIFICATION TESTS
 [TestSetup] Scaler and PyTorch DNN successfully loaded into memory.
 
 Evaluating Case 1: Standard Short Manhattan Trip (Times Square -> Grand Central)...
-  Distance: 0.91 km | Predicted Fare: $8.26 (Expected: $4.00 - $15.00) -> PASSED [OK]
+  Distance: 0.91 km | Predicted Fare: $7.73 (Expected: $4.00 - $15.00) -> PASSED [OK]
 
 Evaluating Case 2: Long Airport Journey (JFK Terminal 4 -> Times Square)...
-  Distance: 21.77 km | Predicted Fare: $59.45 (Expected: $35.00 - $75.00) -> PASSED [OK]
+  Distance: 21.77 km | Predicted Fare: $57.99 (Expected: $35.00 - $75.00) -> PASSED [OK]
 
 Evaluating Case 3: Borderline Ultra-Short Trip (200m hop)...
-  Distance: 0.21 km | Predicted Fare: $5.91 (Expected: $2.50 - $12.00) -> PASSED [OK]
+  Distance: 0.21 km | Predicted Fare: $5.59 (Expected: $2.50 - $12.00) -> PASSED [OK]
 
 Evaluating Case 4: LaGuardia Airport to Lower Manhattan / Wall St...
-  Distance: 13.74 km | Predicted Fare: $37.46 (Expected: $25.00 - $55.00) -> PASSED [OK]
+  Distance: 13.74 km | Predicted Fare: $36.63 (Expected: $25.00 - $55.00) -> PASSED [OK]
 
 ================================================================================
-DEPLOYMENT TEST SUMMARY: 4 / 4 Test Cases Passed.
+RUNNING FEATURE #1: ADDRESS GEOCODING & COORDINATE SYNCHRONIZATION TESTS
+================================================================================
+
+Evaluating TEST 1: Valid NYC Address Geocoding (Times Square, New York, NY)...
+  Resolved: Times Square, Manhattan Community Board 5, Manhattan, New Yo | Coords: (40.7570, -73.9860) -> PASSED [OK]
+
+Evaluating TEST 2: Invalid/Nonexistent Address Graceful Failure...
+  Graceful failure confirmed: status='not_found' | message='❌ Address not found.' -> PASSED [OK]
+
+Evaluating TEST 3: Empty Address Input Validation Error...
+  Validation error caught: status='empty' | message='❌ Address input is empty.' -> PASSED [OK]
+
+Evaluating TEST 4: Existing Predefined Landmark Workflow Coexistence...
+  Landmark Preset Coexistence Verified | Distance: 0.91 km | Fare: $7.73 -> PASSED [OK]
+
+Evaluating TEST 5: Geocoded Coordinates Flow to Existing DNN Inference Pipeline...
+  Resolved: 'Grand Central Terminal, 89, Ea...' -> 'Empire State Building, 350, 5t...'
+  Distance: 0.85 km | DNN Predicted Fare: $7.28 -> PASSED [OK]
+
+Evaluating TEST 6: Manual Coordinate Override Verification...
+  Manual Coordinates Override Applied: (40.76, -73.98) -> (40.75, -73.99)
+  Distance: 1.39 km | Fare: $9.42 -> PASSED [OK]
+
+================================================================================
+DEPLOYMENT & GEOCODING TEST SUMMARY: 10 / 10 Test Cases Passed.
 ================================================================================
 ```
 
@@ -232,6 +257,53 @@ python make_notebook.py
 | **Calendar & Time** | 4 | `hour`, `day`, `day_of_week`, `month`, `year` | Temporal breakdown capturing diurnal and seasonal trends. |
 | **Rush Hour & Weekend** | 2 | `is_weekend`, `is_rush_hour` | Binary indicators for peak surcharge windows (weekdays 4 PM–8 PM) and weekends. |
 | **Cyclical Encoding** | 6 | `sin_hour`, `cos_hour`, `sin_dow`, `cos_dow`, `sin_month`, `cos_month` | Continuous sine/cosine periodicity transformations for time continuity (23:59 $\leftrightarrow$ 00:00). |
+
+---
+
+## 📍 Address Geocoding Engine
+
+The application features a real-time, production-grade **NYC Address → Coordinates Geocoding Engine** (`src/geocoding.py`) that bridges human-readable street addresses directly into the mathematical feature pipeline and PyTorch deep neural network.
+
+### Workflow: From Address to Fare Prediction
+
+1. **Enter Pickup Address:** Type any standard NYC street address, intersection, or landmark name (e.g., `Times Square, New York, NY`).
+2. **Enter Drop-off Address:** Type the destination address (e.g., `JFK Airport Terminal 4, Queens, NY`).
+3. **Click Geocode:** Press `🔎 Geocode Pickup`, `🔎 Geocode Drop-off`, or `⚡ Geocode Both Addresses`.
+4. **Coordinates are Resolved:** The query is sent to the configured geocoding service with NYC metropolitan bounding box biasing (`40.45` to `41.15` N, `-74.35` to `-73.65` W), returning the standardized formatted address, exact latitude, longitude, and relevance confidence score.
+5. **Map Updates Automatically:** The 3D PyDeck flight deck and 2D Plotly map immediately refresh, placing a green marker (🟢) at pickup, a red marker (🔴) at drop-off, and rendering the great-circle trajectory arc.
+6. **Existing DNN Prediction Pipeline Uses the Coordinates:** The resolved coordinates automatically populate the 33-feature transformation vector, pass through the pre-fitted `StandardScaler`, and feed forward into the trained PyTorch `TaxiFareDNN` to output the fare estimate.
+
+### Service Architecture & API Configuration
+
+| Parameter | Specification |
+| :--- | :--- |
+| **Provider** | OpenStreetMap Nominatim (Default REST API) / Commercial Geocoding Provider |
+| **NYC Bounding Box Bias** | Latitude `[40.45, 41.15]`, Longitude `[-74.35, -73.65]` |
+| **Client Identification** | Custom `User-Agent: NYCTaxiFareStudio/2.0` |
+| **Rate Limit Protection** | On-demand button trigger only (never fires per-keystroke); cached with `@st.cache_data` |
+| **Optional API Key Secret** | `GEOCODING_API_KEY` (configured via Streamlit secrets or environment variables) |
+
+#### Configuring Secrets (Optional)
+If using an API provider that requires credentials (such as Google Maps Geocoding or LocationIQ):
+1. **Local Development:** Create `.streamlit/secrets.toml`:
+   ```toml
+   GEOCODING_API_KEY = "your-api-key-here"
+   ```
+2. **Environment Variable:**
+   ```bash
+   export GEOCODING_API_KEY="your-api-key-here"
+   # On Windows PowerShell:
+   $env:GEOCODING_API_KEY="your-api-key-here"
+   ```
+> [!IMPORTANT]
+> The engine defaults to OpenStreetMap Nominatim with zero configuration required. Secrets are never hardcoded, never committed to git, and safely read via `st.secrets` or `os.environ`.
+
+### Seamless Coexistence with Landmark Presets & Manual Coordinates
+
+The application supports multiple location input modalities with complete state synchronization:
+- **📍 Address Search Mode:** Search arbitrary NYC addresses with live geocoding.
+- **📌 Landmark Preset Mode:** Select from 10 verified NYC tourist and transit hubs (Times Square, JFK, LGA, Wall St, etc.).
+- **⚙️ Advanced Coordinates (Manual Fallback):** Direct latitude and longitude number steppers with a clear visual notice (`⚠️ Manual coordinates override the geocoded location`) when manual coordinates supersede geocoding.
 
 ---
 

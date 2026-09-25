@@ -48,6 +48,7 @@ sys.path.append(SRC_DIR)
 
 from feature_engineering import extract_features, haversine_distance, FEATURE_COLS
 from dnn_model import TaxiFareDNN
+from geocoding import geocode_address, is_in_nyc_bbox
 
 # Configure Page
 st.set_page_config(
@@ -1112,6 +1113,41 @@ if "dispatched_cab" not in st.session_state:
     st.session_state["dispatched_cab"] = None
 if "geo_results" not in st.session_state:
     st.session_state["geo_results"] = None
+if "geo_pickup_query" not in st.session_state:
+    st.session_state["geo_pickup_query"] = "Times Square, New York, NY"
+if "geo_dropoff_query" not in st.session_state:
+    st.session_state["geo_dropoff_query"] = "JFK Airport Terminal 4, Queens, NY"
+if "geo_pickup_result" not in st.session_state:
+    st.session_state["geo_pickup_result"] = {
+        "status": "success",
+        "message": "✓ Address found",
+        "formatted_address": "Times Square, Midtown Manhattan, New York, NY",
+        "latitude": 40.7580,
+        "longitude": -73.9855,
+        "confidence": 0.98,
+        "provider": "OpenStreetMap Nominatim"
+    }
+if "geo_dropoff_result" not in st.session_state:
+    st.session_state["geo_dropoff_result"] = {
+        "status": "success",
+        "message": "✓ Address found",
+        "formatted_address": "JFK International Airport (Terminal 4), Queens, NY",
+        "latitude": 40.6413,
+        "longitude": -73.7781,
+        "confidence": 0.96,
+        "provider": "OpenStreetMap Nominatim"
+    }
+if "location_source_mode" not in st.session_state:
+    st.session_state["location_source_mode"] = "📍 Address Search"
+if "recent_searches" not in st.session_state:
+    st.session_state["recent_searches"] = [
+        "Times Square, New York, NY",
+        "JFK Airport Terminal 4, Queens, NY",
+        "Grand Central Terminal, New York, NY",
+        "Empire State Building, New York, NY"
+    ]
+if "manual_coord_override" not in st.session_state:
+    st.session_state["manual_coord_override"] = False
 
 # =============================================================================
 # REAL-TIME NYC TELEMETRY & LIVE API SERVICES
@@ -1230,6 +1266,27 @@ def set_preset(preset_key):
     st.session_state["trip_date"] = cfg["date"]
     st.session_state["trip_time"] = cfg["time"]
     st.session_state["passengers"] = cfg["passengers"]
+    st.session_state["geo_pickup_query"] = cfg["p_name"].split(" (")[0]
+    st.session_state["geo_dropoff_query"] = cfg["d_name"].split(" (")[0]
+    st.session_state["geo_pickup_result"] = {
+        "status": "success",
+        "message": "✓ Preset landmark loaded",
+        "formatted_address": cfg["p_name"],
+        "latitude": cfg["p_coords"][0],
+        "longitude": cfg["p_coords"][1],
+        "confidence": 1.0,
+        "provider": "NYC Landmark Preset"
+    }
+    st.session_state["geo_dropoff_result"] = {
+        "status": "success",
+        "message": "✓ Preset landmark loaded",
+        "formatted_address": cfg["d_name"],
+        "latitude": cfg["d_coords"][0],
+        "longitude": cfg["d_coords"][1],
+        "confidence": 1.0,
+        "provider": "NYC Landmark Preset"
+    }
+    st.session_state["manual_coord_override"] = False
 
 @st.cache_resource
 def load_models_and_scaler():
@@ -1320,71 +1377,228 @@ st.markdown("<br>", unsafe_allow_html=True)
 # =============================================================================
 st.sidebar.markdown("### 🎛️ Trip Telemetry Controls")
 
-def on_p_change():
-    sel = st.session_state["p_choice_key"]
-    st.session_state["p_choice"] = sel
-    if sel in NYC_LANDMARKS and NYC_LANDMARKS[sel] is not None:
-        st.session_state["p_lat"], st.session_state["p_lon"] = NYC_LANDMARKS[sel]
+loc_mode = st.sidebar.radio(
+    "Location Source Mode",
+    ["📍 Address Search", "📌 Landmark Preset"],
+    index=0 if st.session_state.get("location_source_mode") == "📍 Address Search" else 1,
+    horizontal=True,
+    key="loc_mode_selector"
+)
+st.session_state["location_source_mode"] = loc_mode
 
-def on_d_change():
-    sel = st.session_state["d_choice_key"]
-    st.session_state["d_choice"] = sel
-    if sel in NYC_LANDMARKS and NYC_LANDMARKS[sel] is not None:
-        st.session_state["d_lat"], st.session_state["d_lon"] = NYC_LANDMARKS[sel]
+if loc_mode == "📍 Address Search":
+    st.sidebar.markdown("#### 📍 Real-Time NYC Address Geocoder")
+    st.sidebar.caption("Enter human-readable street addresses, intersections, or NYC landmarks:")
+    
+    # 1. Pickup Address Input
+    p_addr_in = st.sidebar.text_input(
+        "Pickup Address",
+        value=st.session_state.get("geo_pickup_query", "Times Square, New York, NY"),
+        placeholder="e.g. Times Square, New York, NY",
+        key="input_geo_pickup_addr"
+    )
+    st.session_state["geo_pickup_query"] = p_addr_in
+    
+    if st.sidebar.button("🔎 Geocode Pickup", key="btn_geo_pickup_run", use_container_width=True):
+        with st.spinner("🔎 Searching pickup address..."):
+            p_res = geocode_address(p_addr_in)
+            st.session_state["geo_pickup_result"] = p_res
+            if p_res["status"] in ["success", "outside_nyc"] and p_res["latitude"] is not None:
+                st.session_state["p_lat"] = p_res["latitude"]
+                st.session_state["p_lon"] = p_res["longitude"]
+                st.session_state["p_choice"] = p_res.get("formatted_address", p_addr_in).split(",")[0]
+                st.session_state["manual_coord_override"] = False
+                if p_addr_in.strip() and p_addr_in not in st.session_state["recent_searches"]:
+                    st.session_state["recent_searches"].insert(0, p_addr_in.strip())
+                    st.session_state["recent_searches"] = st.session_state["recent_searches"][:6]
+                st.toast(f"📍 Pickup resolved: {p_res['latitude']:.4f}, {p_res['longitude']:.4f}", icon="✅")
+                st.rerun()
 
-p_idx = list(NYC_LANDMARKS.keys()).index(st.session_state["p_choice"]) if st.session_state["p_choice"] in NYC_LANDMARKS else 0
-st.sidebar.selectbox("1. Pickup Landmark", list(NYC_LANDMARKS.keys()), index=p_idx, key="p_choice_key", on_change=on_p_change)
+    # Display Pickup Geocode Result Card
+    p_cur = st.session_state.get("geo_pickup_result", {})
+    if p_cur.get("status") == "success":
+        st.sidebar.markdown(f"""
+        <div class="glass-card" style="padding: 0.65rem 0.85rem; margin: 0.2rem 0 0.6rem 0;">
+            <div style="font-size: 0.72rem; font-weight: 700; color: {'#10B981' if is_night_theme else '#16A34A'};">✓ Address found • 📍 Pickup</div>
+            <div style="font-size: 0.8rem; font-weight: 600; color: {'#F1F5F9' if is_night_theme else '#0F172A'}; margin: 0.2rem 0;">{p_cur.get('formatted_address', '')[:60]}...</div>
+            <div style="font-size: 0.75rem; color: {'#94A3B8' if is_night_theme else '#475569'}; font-family: 'JetBrains Mono';">
+                <b>Latitude:</b> {st.session_state['p_lat']:.4f} &nbsp;|&nbsp; <b>Longitude:</b> {st.session_state['p_lon']:.4f}
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+    elif p_cur.get("status") == "outside_nyc":
+        st.sidebar.warning(f"⚠️ Location appears outside the supported NYC service area.\n{p_cur.get('formatted_address', '')[:60]}...")
+    elif p_cur.get("status") == "not_found":
+        st.sidebar.error("❌ Address not found.")
+    elif p_cur.get("status") == "empty":
+        st.sidebar.error("❌ Address input is empty.")
+    elif p_cur.get("status") == "rate_limited":
+        st.sidebar.warning("⚠️ API rate limit reached. Please try again shortly.")
+    elif p_cur.get("status") == "network_error":
+        st.sidebar.warning("⚠️ Geocoding service temporarily unavailable.")
 
-col_plat, col_plon = st.sidebar.columns(2)
-with col_plat:
-    p_lat = st.sidebar.number_input("Pickup Lat", value=float(st.session_state["p_lat"]), min_value=40.50, max_value=40.95, format="%.6f", key="p_lat_input")
-    st.session_state["p_lat"] = p_lat
-with col_plon:
-    p_lon = st.sidebar.number_input("Pickup Lon", value=float(st.session_state["p_lon"]), min_value=-74.25, max_value=-73.70, format="%.6f", key="p_lon_input")
-    st.session_state["p_lon"] = p_lon
+    # 2. Drop-off Address Input
+    d_addr_in = st.sidebar.text_input(
+        "Drop-off Address",
+        value=st.session_state.get("geo_dropoff_query", "JFK Airport Terminal 4, Queens, NY"),
+        placeholder="e.g. JFK Airport Terminal 4, Queens, NY",
+        key="input_geo_dropoff_addr"
+    )
+    st.session_state["geo_dropoff_query"] = d_addr_in
+    
+    if st.sidebar.button("🔎 Geocode Drop-off", key="btn_geo_dropoff_run", use_container_width=True):
+        with st.spinner("🔎 Searching drop-off address..."):
+            d_res = geocode_address(d_addr_in)
+            st.session_state["geo_dropoff_result"] = d_res
+            if d_res["status"] in ["success", "outside_nyc"] and d_res["latitude"] is not None:
+                st.session_state["d_lat"] = d_res["latitude"]
+                st.session_state["d_lon"] = d_res["longitude"]
+                st.session_state["d_choice"] = d_res.get("formatted_address", d_addr_in).split(",")[0]
+                st.session_state["manual_coord_override"] = False
+                if d_addr_in.strip() and d_addr_in not in st.session_state["recent_searches"]:
+                    st.session_state["recent_searches"].insert(0, d_addr_in.strip())
+                    st.session_state["recent_searches"] = st.session_state["recent_searches"][:6]
+                st.toast(f"🏁 Drop-off resolved: {d_res['latitude']:.4f}, {d_res['longitude']:.4f}", icon="✅")
+                st.rerun()
 
-st.sidebar.markdown("---")
-d_idx = list(NYC_LANDMARKS.keys()).index(st.session_state["d_choice"]) if st.session_state["d_choice"] in NYC_LANDMARKS else 2
-st.sidebar.selectbox("2. Drop-off Landmark", list(NYC_LANDMARKS.keys()), index=d_idx, key="d_choice_key", on_change=on_d_change)
+    # Display Drop-off Geocode Result Card
+    d_cur = st.session_state.get("geo_dropoff_result", {})
+    if d_cur.get("status") == "success":
+        st.sidebar.markdown(f"""
+        <div class="glass-card" style="padding: 0.65rem 0.85rem; margin: 0.2rem 0 0.6rem 0;">
+            <div style="font-size: 0.72rem; font-weight: 700; color: {'#10B981' if is_night_theme else '#16A34A'};">✓ Address found • 🏁 Drop-off</div>
+            <div style="font-size: 0.8rem; font-weight: 600; color: {'#F1F5F9' if is_night_theme else '#0F172A'}; margin: 0.2rem 0;">{d_cur.get('formatted_address', '')[:60]}...</div>
+            <div style="font-size: 0.75rem; color: {'#94A3B8' if is_night_theme else '#475569'}; font-family: 'JetBrains Mono';">
+                <b>Latitude:</b> {st.session_state['d_lat']:.4f} &nbsp;|&nbsp; <b>Longitude:</b> {st.session_state['d_lon']:.4f}
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+    elif d_cur.get("status") == "outside_nyc":
+        st.sidebar.warning(f"⚠️ Location appears outside the supported NYC service area.\n{d_cur.get('formatted_address', '')[:60]}...")
+    elif d_cur.get("status") == "not_found":
+        st.sidebar.error("❌ Address not found.")
+    elif d_cur.get("status") == "empty":
+        st.sidebar.error("❌ Address input is empty.")
+    elif d_cur.get("status") == "rate_limited":
+        st.sidebar.warning("⚠️ API rate limit reached. Please try again shortly.")
+    elif d_cur.get("status") == "network_error":
+        st.sidebar.warning("⚠️ Geocoding service temporarily unavailable.")
 
-col_dlat, col_dlon = st.sidebar.columns(2)
-with col_dlat:
-    d_lat = st.sidebar.number_input("Drop-off Lat", value=float(st.session_state["d_lat"]), min_value=40.50, max_value=40.95, format="%.6f", key="d_lat_input")
-    st.session_state["d_lat"] = d_lat
-with col_dlon:
-    d_lon = st.sidebar.number_input("Drop-off Lon", value=float(st.session_state["d_lon"]), min_value=-74.25, max_value=-73.70, format="%.6f", key="d_lon_input")
-    st.session_state["d_lon"] = d_lon
+    if st.sidebar.button("⚡ Geocode Both Addresses", key="btn_geocode_both_run", use_container_width=True):
+        with st.spinner("🔎 Geocoding pickup and drop-off addresses..."):
+            p_res = geocode_address(p_addr_in)
+            d_res = geocode_address(d_addr_in)
+            st.session_state["geo_pickup_result"] = p_res
+            st.session_state["geo_dropoff_result"] = d_res
+            updated = False
+            if p_res["status"] in ["success", "outside_nyc"] and p_res["latitude"]:
+                st.session_state["p_lat"] = p_res["latitude"]
+                st.session_state["p_lon"] = p_res["longitude"]
+                st.session_state["p_choice"] = p_res.get("formatted_address", p_addr_in).split(",")[0]
+                updated = True
+            if d_res["status"] in ["success", "outside_nyc"] and d_res["latitude"]:
+                st.session_state["d_lat"] = d_res["latitude"]
+                st.session_state["d_lon"] = d_res["longitude"]
+                st.session_state["d_choice"] = d_res.get("formatted_address", d_addr_in).split(",")[0]
+                updated = True
+            if updated:
+                st.session_state["manual_coord_override"] = False
+                st.toast("Both locations geocoded & synchronized!", icon="🗺️")
+                st.rerun()
 
-# Real-Time Address Geocoding Search
-with st.sidebar.expander("🔍 Real-Time NYC Address Geocoder", expanded=False):
-    st.caption("Search any real street address, building, or landmark in NYC:")
-    geo_query = st.text_input("Enter Address / Place", placeholder="e.g. Empire State Building, SoHo", key="geo_search_input")
-    if st.button("🔎 Geocode Address", key="btn_geocode", use_container_width=True):
-        if geo_query:
-            results = search_nyc_address(geo_query)
-            if results:
-                st.session_state["geo_results"] = results
-            else:
-                st.warning("No NYC matches found. Please refine search query.")
-                
-    if "geo_results" in st.session_state and st.session_state["geo_results"]:
-        for r_i, r in enumerate(st.session_state["geo_results"]):
-            st.markdown(f"**{r['name']}**  \n<span style='font-size: 0.75rem; color: {'#94A3B8' if is_night_theme else '#475569'};'>{r['full_addr'][:75]}...</span>", unsafe_allow_html=True)
-            col_gp, col_gd = st.sidebar.columns(2)
-            with col_gp:
-                if st.button("📍 Set Pickup", key=f"btn_set_p_{r_i}", use_container_width=True):
-                    st.session_state["p_choice"] = "Custom Coordinates"
-                    st.session_state["p_lat"] = r["lat"]
-                    st.session_state["p_lon"] = r["lon"]
-                    st.toast(f"Pickup set to {r['name']}", icon="📍")
-                    st.rerun()
-            with col_gd:
-                if st.button("🏁 Set Dropoff", key=f"btn_set_d_{r_i}", use_container_width=True):
-                    st.session_state["d_choice"] = "Custom Coordinates"
-                    st.session_state["d_lat"] = r["lat"]
-                    st.session_state["d_lon"] = r["lon"]
-                    st.toast(f"Drop-off set to {r['name']}", icon="🏁")
-                    st.rerun()
+else:
+    st.sidebar.markdown("#### 📌 Predefined NYC Landmarks")
+    def on_p_change():
+        sel = st.session_state["p_choice_key"]
+        st.session_state["p_choice"] = sel
+        if sel in NYC_LANDMARKS and NYC_LANDMARKS[sel] is not None:
+            st.session_state["p_lat"], st.session_state["p_lon"] = NYC_LANDMARKS[sel]
+            st.session_state["geo_pickup_query"] = sel.split(" (")[0]
+            st.session_state["geo_pickup_result"] = {
+                "status": "success", "message": "✓ Landmark default resolved",
+                "formatted_address": sel, "latitude": NYC_LANDMARKS[sel][0],
+                "longitude": NYC_LANDMARKS[sel][1], "confidence": 1.0, "provider": "NYC Landmark Preset"
+            }
+            st.session_state["manual_coord_override"] = False
+
+    def on_d_change():
+        sel = st.session_state["d_choice_key"]
+        st.session_state["d_choice"] = sel
+        if sel in NYC_LANDMARKS and NYC_LANDMARKS[sel] is not None:
+            st.session_state["d_lat"], st.session_state["d_lon"] = NYC_LANDMARKS[sel]
+            st.session_state["geo_dropoff_query"] = sel.split(" (")[0]
+            st.session_state["geo_dropoff_result"] = {
+                "status": "success", "message": "✓ Landmark default resolved",
+                "formatted_address": sel, "latitude": NYC_LANDMARKS[sel][0],
+                "longitude": NYC_LANDMARKS[sel][1], "confidence": 1.0, "provider": "NYC Landmark Preset"
+            }
+            st.session_state["manual_coord_override"] = False
+
+    p_idx = list(NYC_LANDMARKS.keys()).index(st.session_state["p_choice"]) if st.session_state["p_choice"] in NYC_LANDMARKS else 0
+    st.sidebar.selectbox("1. Pickup Landmark", list(NYC_LANDMARKS.keys()), index=p_idx, key="p_choice_key", on_change=on_p_change)
+
+    d_idx = list(NYC_LANDMARKS.keys()).index(st.session_state["d_choice"]) if st.session_state["d_choice"] in NYC_LANDMARKS else 2
+    st.sidebar.selectbox("2. Drop-off Landmark", list(NYC_LANDMARKS.keys()), index=d_idx, key="d_choice_key", on_change=on_d_change)
+
+# Advanced Coordinates Manual Override
+with st.sidebar.expander("⚙️ Advanced Coordinates (Manual Fallback)", expanded=False):
+    st.caption("Manually fine-tune high-precision latitude & longitude values:")
+    col_plat, col_plon = st.sidebar.columns(2)
+    with col_plat:
+        adv_plat = st.sidebar.number_input("Pickup Lat", value=float(st.session_state["p_lat"]), min_value=40.50, max_value=40.95, format="%.6f", key="adv_plat_input")
+    with col_plon:
+        adv_plon = st.sidebar.number_input("Pickup Lon", value=float(st.session_state["p_lon"]), min_value=-74.25, max_value=-73.70, format="%.6f", key="adv_plon_input")
+        
+    col_dlat, col_dlon = st.sidebar.columns(2)
+    with col_dlat:
+        adv_dlat = st.sidebar.number_input("Drop-off Lat", value=float(st.session_state["d_lat"]), min_value=40.50, max_value=40.95, format="%.6f", key="adv_dlat_input")
+    with col_dlon:
+        adv_dlon = st.sidebar.number_input("Drop-off Lon", value=float(st.session_state["d_lon"]), min_value=-74.25, max_value=-73.70, format="%.6f", key="adv_dlon_input")
+        
+    if st.sidebar.button("📍 Use Coordinates", key="btn_apply_manual_coords", use_container_width=True):
+        st.session_state["p_lat"] = adv_plat
+        st.session_state["p_lon"] = adv_plon
+        st.session_state["d_lat"] = adv_dlat
+        st.session_state["d_lon"] = adv_dlon
+        st.session_state["p_choice"] = f"Custom ({adv_plat:.4f}, {adv_plon:.4f})"
+        st.session_state["d_choice"] = f"Custom ({adv_dlat:.4f}, {adv_dlon:.4f})"
+        st.session_state["manual_coord_override"] = True
+        st.toast("Manual coordinates applied to prediction pipeline!", icon="📍")
+        st.rerun()
+
+if st.session_state.get("manual_coord_override", False):
+    st.sidebar.warning("⚠️ Manual coordinates override the geocoded location.")
+
+# Recent Locations History
+if st.session_state.get("recent_searches"):
+    with st.sidebar.expander("🕒 Recent Geocoded Locations", expanded=False):
+        for r_idx, r_addr in enumerate(st.session_state["recent_searches"][:5]):
+            st.markdown(f"• **{r_addr}**")
+            col_rp, col_rd = st.sidebar.columns(2)
+            with col_rp:
+                if st.button("📍 As Pickup", key=f"btn_rec_p_{r_idx}", use_container_width=True):
+                    st.session_state["geo_pickup_query"] = r_addr
+                    with st.spinner("Resolving..."):
+                        res = geocode_address(r_addr)
+                        st.session_state["geo_pickup_result"] = res
+                        if res["status"] in ["success", "outside_nyc"] and res["latitude"]:
+                            st.session_state["p_lat"] = res["latitude"]
+                            st.session_state["p_lon"] = res["longitude"]
+                            st.session_state["p_choice"] = res.get("formatted_address", r_addr).split(",")[0]
+                            st.session_state["manual_coord_override"] = False
+                            st.rerun()
+            with col_rd:
+                if st.button("🏁 As Drop", key=f"btn_rec_d_{r_idx}", use_container_width=True):
+                    st.session_state["geo_dropoff_query"] = r_addr
+                    with st.spinner("Resolving..."):
+                        res = geocode_address(r_addr)
+                        st.session_state["geo_dropoff_result"] = res
+                        if res["status"] in ["success", "outside_nyc"] and res["latitude"]:
+                            st.session_state["d_lat"] = res["latitude"]
+                            st.session_state["d_lon"] = res["longitude"]
+                            st.session_state["d_choice"] = res.get("formatted_address", r_addr).split(",")[0]
+                            st.session_state["manual_coord_override"] = False
+                            st.rerun()
 
 st.sidebar.markdown("---")
 st.sidebar.markdown("#### 3. Temporal & Passenger Settings")
@@ -1574,6 +1788,65 @@ road_dist_km = route_info["distance_km"]
 road_dur_mins = route_info["duration_mins"]
 road_coords = route_info["coordinates"]
 nearby_cabs = get_nearby_cabs(p_lat, p_lon)
+
+# =============================================================================
+# REAL-TIME GEOCODED ROUTE & FARE OVERVIEW CARD
+# =============================================================================
+disp_p_addr = (
+    st.session_state["geo_pickup_result"].get("formatted_address") 
+    if st.session_state.get("geo_pickup_result") and st.session_state["geo_pickup_result"].get("formatted_address") 
+    else st.session_state.get("geo_pickup_query", pickup_landmark)
+)
+disp_d_addr = (
+    st.session_state["geo_dropoff_result"].get("formatted_address") 
+    if st.session_state.get("geo_dropoff_result") and st.session_state["geo_dropoff_result"].get("formatted_address") 
+    else st.session_state.get("geo_dropoff_query", dropoff_landmark)
+)
+
+st.markdown(f"""
+<div style="background: {card_bg}; border: 1px solid {card_border}; border-radius: 16px; padding: 1.1rem 1.4rem; margin-bottom: 1.2rem; box-shadow: 0 4px 18px rgba(0,0,0,0.05); display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem;">
+    <div style="flex: 1 1 280px; min-width: 240px;">
+        <div style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: {'#10B981' if is_night_theme else '#16A34A'}; margin-bottom: 0.25rem;">
+            🟢 📍 Pickup Location
+        </div>
+        <div style="font-size: 0.98rem; font-weight: 700; color: {card_text}; line-height: 1.35; margin-bottom: 0.25rem;">
+            {disp_p_addr}
+        </div>
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: {'#94A3B8' if is_night_theme else '#64748B'};">
+            {p_lat:.4f}, {p_lon:.4f}
+        </div>
+    </div>
+    <div style="text-align: center; padding: 0 0.5rem; flex: 0 0 auto;">
+        <div style="font-size: 1.3rem; color: {'#38BDF8' if is_night_theme else '#2563EB'};">↓</div>
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; font-weight: 700; color: {'#38BDF8' if is_night_theme else '#2563EB'}; white-space: nowrap;">
+            {distance_km:.1f} km
+        </div>
+        <div style="font-size: 0.7rem; color: {'#94A3B8' if is_night_theme else '#64748B'};">haversine</div>
+    </div>
+    <div style="flex: 1 1 280px; min-width: 240px;">
+        <div style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: {'#F43F5E' if is_night_theme else '#DC2626'}; margin-bottom: 0.25rem;">
+            🔴 🏁 Drop-off Location
+        </div>
+        <div style="font-size: 0.98rem; font-weight: 700; color: {card_text}; line-height: 1.35; margin-bottom: 0.25rem;">
+            {disp_d_addr}
+        </div>
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: {'#94A3B8' if is_night_theme else '#64748B'};">
+            {d_lat:.4f}, {d_lon:.4f}
+        </div>
+    </div>
+    <div style="border-left: 1px solid {card_border}; padding-left: 1.2rem; flex: 0 1 auto; min-width: 150px; text-align: right;">
+        <div style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: {'#94A3B8' if is_night_theme else '#64748B'};">
+            Predicted Fare
+        </div>
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 1.85rem; font-weight: 800; color: {'#10B981' if is_night_theme else '#16A34A'}; line-height: 1.1; margin-top: 0.2rem;">
+            ${pred_fare:.2f}
+        </div>
+        <div style="font-size: 0.7rem; color: {'#94A3B8' if is_night_theme else '#64748B'};">
+            PyTorch DNN (Huber)
+        </div>
+    </div>
+</div>
+""", unsafe_allow_html=True)
 
 # =============================================================================
 # KEY SPATIAL METRICS ROW
@@ -2230,6 +2503,10 @@ with tab_receipt:
         total_fare_with_tip = round(pred_fare + tip_amt, 2)
         payment_method = st.selectbox("Payment Mode", ["Credit Card (Mastercard / Visa)", "Apple Pay / Google Wallet", "Cash", "MTA Mobility Card"])
         
+        # Dynamic receipt location names
+        receipt_p_name = st.session_state.get('geo_pickup_query') or st.session_state.get('p_choice') or 'Pickup Location'
+        receipt_d_name = st.session_state.get('geo_dropoff_query') or st.session_state.get('d_choice') or 'Drop-off Location'
+
         # Receipt text export
         receipt_txt = f"""
 =====================================================
@@ -2241,9 +2518,9 @@ Operator ID    : CSE-4192-SOA-ITER
 Date & Time    : {pickup_dt.strftime('%Y-%m-%d %H:%M:%S')}
 Payment Method : {payment_method}
 -----------------------------------------------------
-Pickup Location: {st.session_state['p_choice']}
+Pickup Location: {receipt_p_name}
                  ({p_lat:.4f}, {p_lon:.4f})
-Drop-off Loc   : {st.session_state['d_choice']}
+Drop-off Loc   : {receipt_d_name}
                  ({d_lat:.4f}, {d_lon:.4f})
 Distance       : {distance_km:.2f} km ({distance_km * 0.621371:.2f} miles)
 Passengers     : {passengers}
@@ -2280,11 +2557,11 @@ Thank you for riding NYC Yellow Cab!
 </div>
 <div class="receipt-line">
     <span>Pickup:</span>
-    <span style="font-weight: 600;">{st.session_state['p_choice'][:26]}</span>
+    <span style="font-weight: 600;">{receipt_p_name[:28]}</span>
 </div>
 <div class="receipt-line">
     <span>Drop-off:</span>
-    <span style="font-weight: 600;">{st.session_state['d_choice'][:26]}</span>
+    <span style="font-weight: 600;">{receipt_d_name[:28]}</span>
 </div>
 <div class="receipt-line">
     <span>Trip Distance:</span>
@@ -2453,8 +2730,8 @@ with tab_viz:
 # TAB 7: AUTOMATED TEST SUITE RUNNER
 # -----------------------------------------------------------------------------
 with tab_test:
-    st.markdown("### 🧪 Automated Deployment Verification Test Suite")
-    st.markdown("Executes `app/test_deployment.py` to validate checkpoint integrity, scaler transformations, and inference boundaries across 4 operational test scenarios:")
+    st.markdown("### 🧪 Automated Deployment & Geocoding Verification Test Suite")
+    st.markdown("Executes `app/test_deployment.py` to validate checkpoint integrity, scaler transformations, real address geocoding, and inference boundaries across 10 operational test scenarios:")
     
     toggle_live_telemetry = st.toggle(
         "⚡ Extended Diagnostics & Telemetry Assertion Logs",
@@ -2466,11 +2743,11 @@ with tab_test:
     if st.button("▶️ Execute Automated Deployment Test Suite", key="btn_run_tests_tab"):
         import subprocess
         test_script = os.path.join(BASE_DIR, "app", "test_deployment.py")
-        res = subprocess.run([sys.executable, test_script], capture_output=True, text=True)
+        res = subprocess.run([sys.executable, test_script], capture_output=True, text=True, encoding="utf-8", errors="replace")
         if toggle_live_telemetry:
             st.code(res.stdout, language="bash")
         if res.returncode == 0:
-            st.success("✅ All 4 Deployment Validation Tests Passed Successfully (100% Pass Rate)!")
+            st.success("✅ All 10 Deployment & Geocoding Validation Tests Passed Successfully (100% Pass Rate)!")
         else:
             st.error("❌ Some deployment tests encountered issues.")
 
