@@ -86,7 +86,7 @@ radar_grid_color = "#334155" if is_night_theme else "#E2E8F0"
 map_theme_pdk = pdk.map_styles.CARTO_DARK if is_night_theme else pdk.map_styles.CARTO_LIGHT
 map_theme_plotly = "carto-darkmatter" if is_night_theme else "carto-positron"
 accent_blue = "#38BDF8" if is_night_theme else "#2563EB"
-accent_cyan = "#22D3EE" if is_night_theme else "#06B6D4"
+accent_cyan = "#22D3EE" if is_night_theme else "#0891B2"
 text_primary = "#F1F5F9" if is_night_theme else "#0F172A"
 text_secondary = "#94A3B8" if is_night_theme else "#475569"
 text_muted = "#64748B" if is_night_theme else "#64748B"
@@ -398,35 +398,64 @@ if is_night_theme:
     """
 else:
     theme_css = """
-    /* Main Background Accent - Crisp Sunlit Day Mode (Zero Blur, Zero Fog) */
+    /* =========================================================================
+       DAY MODE DESIGN TOKEN SYSTEM (Zero Blur, Zero Fog, High-Contrast Light Mode)
+       ========================================================================= */
+    :root {
+        --bg-primary: #F6F8FC;
+        --bg-secondary: #F1F5F9;
+        --surface: #FFFFFF;
+        --surface-hover: #F8FAFC;
+        --border: #CBD5E1;
+        --divider: #E2E8F0;
+        --text-primary: #0F172A;
+        --text-secondary: #475569;
+        --text-muted: #64748B;
+        --primary: #2563EB;
+        --primary-light: #EFF6FF;
+        --primary-hover: #1D4ED8;
+        --secondary-blue: #3B82F6;
+        --cyan: #0891B2;
+        --success: #16A34A;
+        --warning: #D97706;
+        --danger: #DC2626;
+        --purple: #7C3AED;
+    }
+
+    /* Overall Application Canvas */
     .stApp {
-        background-color: #F8FAFC !important;
-        background-image: linear-gradient(180deg, #F8FAFC 0%, #F1F5F9 100%) !important;
+        background-color: #F6F8FC !important;
+        background-image: linear-gradient(135deg, #F8FAFC 0%, #EFF6FF 50%, #F8FAFC 100%) !important;
         color: #0F172A !important;
     }
     
-    /* Clean Light Sidebar */
+    /* Crisp Professional Light Sidebar */
     section[data-testid="stSidebar"] {
         background: #FFFFFF !important;
         border-right: 1px solid #E2E8F0 !important;
-        box-shadow: 2px 0 12px rgba(15, 23, 42, 0.04) !important;
-    }
-    section[data-testid="stSidebar"] .stMarkdown, 
-    section[data-testid="stSidebar"] label,
-    section[data-testid="stSidebar"] p,
-    section[data-testid="stSidebar"] span {
-        color: #0F172A !important;
-        font-weight: 500 !important;
+        box-shadow: 2px 0 10px rgba(15, 23, 42, 0.03) !important;
     }
     section[data-testid="stSidebar"] h1,
     section[data-testid="stSidebar"] h2,
     section[data-testid="stSidebar"] h3,
-    section[data-testid="stSidebar"] h4 {
+    section[data-testid="stSidebar"] h4,
+    section[data-testid="stSidebar"] h5 {
         color: #0F172A !important;
         font-weight: 700 !important;
     }
+    section[data-testid="stSidebar"] label {
+        color: #475569 !important;
+        font-weight: 600 !important;
+    }
+    section[data-testid="stSidebar"] p,
+    section[data-testid="stSidebar"] span {
+        color: #475569 !important;
+    }
+    section[data-testid="stSidebar"] hr {
+        border-color: #E2E8F0 !important;
+    }
     
-    /* High-Visibility Sidebar Inputs */
+    /* Sidebar Inputs */
     section[data-testid="stSidebar"] div[data-testid="stSelectbox"] > div,
     section[data-testid="stSidebar"] div[data-testid="stNumberInput"] > div,
     section[data-testid="stSidebar"] div[data-testid="stTextInput"] > div,
@@ -470,8 +499,42 @@ else:
         border-color: #2563EB !important;
         box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15) !important;
     }
+    input {
+        color: #0F172A !important;
+    }
     input::placeholder {
         color: #64748B !important;
+    }
+
+    /* Sliders, Toggles, Radios */
+    div[data-testid="stSlider"] div[role="slider"] {
+        background-color: #2563EB !important;
+        border: 2px solid #FFFFFF !important;
+        box-shadow: 0 1px 4px rgba(15, 23, 42, 0.2) !important;
+    }
+    div[data-testid="stSlider"] [data-baseweb="slider"] > div > div {
+        background: #CBD5E1 !important;
+    }
+    div[data-testid="stSlider"] [data-baseweb="slider"] > div > div > div {
+        background: #2563EB !important;
+    }
+    div[data-testid="stToggle"] [data-baseweb="toggle"] {
+        background-color: #CBD5E1 !important;
+    }
+    div[data-testid="stToggle"] [aria-checked="true"] {
+        background-color: #2563EB !important;
+    }
+    div[data-testid="stRadio"] label {
+        color: #0F172A !important;
+        font-weight: 500 !important;
+    }
+    div[data-testid="stRadio"] div[role="radiogroup"] > label div:first-child {
+        border-color: #CBD5E1 !important;
+        background-color: #FFFFFF !important;
+    }
+    div[data-testid="stRadio"] div[role="radiogroup"] > label div[aria-checked="true"]:first-child {
+        border-color: #2563EB !important;
+        background-color: #2563EB !important;
     }
 
     /* General Typography & Headings */
@@ -488,37 +551,41 @@ else:
         line-height: 1.6 !important;
     }
 
-    /* Hero Header - Sharp High-Contrast Gradient Banner */
+    /* Hero Section - Crisp Light Gradient Card */
     .hero-banner {
-        background: linear-gradient(135deg, #1E3A8A 0%, #2563EB 55%, #06B6D4 100%) !important;
+        background: linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 50%, #ECFEFF 100%) !important;
         padding: 2.2rem 2.6rem !important;
-        border-radius: 16px !important;
-        color: #FFFFFF !important;
+        border-radius: 18px !important;
+        color: #0F172A !important;
         margin-bottom: 1.2rem !important;
-        border: 1px solid #1D4ED8 !important;
-        box-shadow: 0 10px 25px -5px rgba(37, 99, 235, 0.25) !important;
+        border: 1px solid #93C5FD !important;
+        box-shadow: 0 4px 16px rgba(37, 99, 235, 0.08) !important;
         position: relative !important;
         overflow: hidden !important;
         backdrop-filter: none !important;
         -webkit-backdrop-filter: none !important;
     }
+    .hero-banner::after {
+        display: none !important;
+    }
     .hero-banner h1 {
         font-family: 'Space Grotesk', sans-serif !important;
-        color: #FFFFFF !important;
+        color: #0F172A !important;
         font-size: 2.45rem !important;
         font-weight: 800 !important;
         margin-bottom: 0.35rem !important;
         letter-spacing: -0.03em !important;
-        text-shadow: 0 2px 10px rgba(0, 0, 0, 0.25) !important;
+        text-shadow: none !important;
     }
     .hero-banner p {
-        color: #E0F2FE !important;
+        color: #334155 !important;
         font-size: 1.05rem !important;
         margin-bottom: 0.6rem !important;
         max-width: 85% !important;
         font-weight: 500 !important;
     }
     
+    /* Badges */
     .badge-bar {
         display: flex;
         gap: 0.6rem;
@@ -526,26 +593,39 @@ else:
         margin-top: 0.9rem;
     }
     .hero-badge {
-        background: rgba(255, 255, 255, 0.2) !important;
-        border: 1px solid rgba(255, 255, 255, 0.5) !important;
+        background: #FFFFFF !important;
+        border: 1px solid #BFDBFE !important;
         padding: 0.35rem 0.85rem !important;
         border-radius: 9999px !important;
         font-size: 0.82rem !important;
-        color: #FFFFFF !important;
+        color: #1D4ED8 !important;
         font-weight: 600 !important;
+        box-shadow: 0 1px 3px rgba(37, 99, 235, 0.08) !important;
         backdrop-filter: none !important;
         -webkit-backdrop-filter: none !important;
     }
     .hero-badge.highlight {
-        background: rgba(254, 243, 199, 0.3) !important;
-        border-color: #FCD34D !important;
-        color: #FEF3C7 !important;
+        background: #FFFBEB !important;
+        border-color: #FDE68A !important;
+        color: #B45309 !important;
         font-weight: 700 !important;
     }
     .hero-badge.green {
-        background: rgba(209, 250, 229, 0.3) !important;
-        border-color: #34D399 !important;
-        color: #ECFDF5 !important;
+        background: #F0FDF4 !important;
+        border-color: #BBF7D0 !important;
+        color: #15803D !important;
+        font-weight: 700 !important;
+    }
+    .hero-badge.cyan {
+        background: #ECFEFF !important;
+        border-color: #A5F3FC !important;
+        color: #0E7490 !important;
+        font-weight: 700 !important;
+    }
+    .hero-badge.purple {
+        background: #FAF5FF !important;
+        border-color: #E9D5FF !important;
+        color: #6B21A8 !important;
         font-weight: 700 !important;
     }
     
@@ -572,18 +652,18 @@ else:
         height: 8px;
         border-radius: 50%;
         background-color: #16A34A !important;
-        box-shadow: 0 0 6px #16A34A !important;
+        box-shadow: 0 0 6px rgba(22, 163, 74, 0.4) !important;
         margin-right: 8px;
         animation: pulse 1.8s infinite;
     }
     
-    /* Crisp High-Contrast Cards (Zero Blurriness) */
+    /* Crisp Dashboard Cards */
     .glass-card {
         background: #FFFFFF !important;
         border: 1px solid #CBD5E1 !important;
         border-radius: 14px !important;
         padding: 1.2rem 1.4rem !important;
-        box-shadow: 0 4px 14px rgba(15, 23, 42, 0.06) !important;
+        box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06) !important;
         transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease !important;
         backdrop-filter: none !important;
         -webkit-backdrop-filter: none !important;
@@ -591,7 +671,7 @@ else:
     .glass-card:hover {
         border-color: #2563EB !important;
         transform: translateY(-2px) !important;
-        box-shadow: 0 8px 20px rgba(37, 99, 235, 0.12) !important;
+        box-shadow: 0 8px 18px rgba(37, 99, 235, 0.10) !important;
     }
     
     .metric-label {
@@ -614,14 +694,14 @@ else:
         margin-top: 0.2rem !important;
     }
     
-    /* Taximeter HUD */
+    /* Clean White Taximeter HUD */
     .taximeter-hud {
-        background: linear-gradient(135deg, #047857 0%, #059669 50%, #10B981 100%) !important;
-        border: 1px solid #10B981 !important;
+        background: #FFFFFF !important;
+        border: 1px solid #CBD5E1 !important;
         border-radius: 18px !important;
         padding: 1.8rem 1.6rem !important;
         text-align: center !important;
-        box-shadow: 0 10px 25px rgba(16, 185, 129, 0.25) !important;
+        box-shadow: 0 4px 14px rgba(15, 23, 42, 0.06) !important;
         position: relative !important;
         backdrop-filter: none !important;
         -webkit-backdrop-filter: none !important;
@@ -631,61 +711,63 @@ else:
         text-transform: uppercase !important;
         letter-spacing: 0.12em !important;
         font-weight: 700 !important;
-        color: #D1FAE5 !important;
+        color: #475569 !important;
     }
     .taximeter-fare {
         font-family: 'JetBrains Mono', monospace !important;
         font-size: 3.75rem !important;
         font-weight: 800 !important;
-        color: #FFFFFF !important;
+        color: #0F172A !important;
         margin: 0.15rem 0 !important;
-        text-shadow: 0 2px 8px rgba(0, 0, 0, 0.25) !important;
+        text-shadow: none !important;
         letter-spacing: -0.03em !important;
     }
     .taximeter-ci {
-        font-size: 0.92rem !important;
-        color: #ECFDF5 !important;
-        background: rgba(0, 0, 0, 0.25) !important;
+        font-size: 0.90rem !important;
+        color: #1D4ED8 !important;
+        background: #EFF6FF !important;
         display: inline-block !important;
         padding: 0.38rem 0.95rem !important;
         border-radius: 20px !important;
-        border: 1px solid rgba(255, 255, 255, 0.3) !important;
+        border: 1px solid #BFDBFE !important;
         font-family: 'JetBrains Mono', monospace !important;
+        font-weight: 600 !important;
     }
     
-    /* High-Impact Gradient Primary Buttons & Crisp Standard Buttons */
+    /* Buttons */
     div[data-testid="stButton"] > button {
         background: #FFFFFF !important;
         color: #0F172A !important;
         border: 1px solid #CBD5E1 !important;
-        border-radius: 12px !important;
+        border-radius: 10px !important;
         font-weight: 600 !important;
         font-size: 0.85rem !important;
         padding: 0.6rem 0.85rem !important;
         transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
-        box-shadow: 0 2px 6px rgba(15, 23, 42, 0.05) !important;
+        box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05) !important;
         text-align: center !important;
     }
     div[data-testid="stButton"] > button:hover {
         background: #F8FAFC !important;
         border-color: #2563EB !important;
         color: #2563EB !important;
-        transform: translateY(-2px) !important;
-        box-shadow: 0 4px 14px rgba(37, 99, 235, 0.15) !important;
+        transform: translateY(-1px) !important;
+        box-shadow: 0 4px 12px rgba(37, 99, 235, 0.12) !important;
     }
     div[data-testid="stButton"] > button[kind="primary"],
     div[data-testid="stDownloadButton"] > button {
-        background: linear-gradient(135deg, #2563EB 0%, #06B6D4 100%) !important;
+        background: linear-gradient(135deg, #2563EB 0%, #0891B2 100%) !important;
         color: #FFFFFF !important;
-        border: 1px solid #2563EB !important;
+        border: none !important;
+        border-radius: 10px !important;
         font-weight: 700 !important;
         box-shadow: 0 4px 14px rgba(37, 99, 235, 0.25) !important;
     }
     div[data-testid="stButton"] > button[kind="primary"]:hover,
     div[data-testid="stDownloadButton"] > button:hover {
-        background: linear-gradient(135deg, #1D4ED8 0%, #0891B2 100%) !important;
+        background: linear-gradient(135deg, #1D4ED8 0%, #0E7490 100%) !important;
         color: #FFFFFF !important;
-        transform: translateY(-2px) !important;
+        transform: translateY(-1px) !important;
         box-shadow: 0 6px 18px rgba(37, 99, 235, 0.35) !important;
     }
     
@@ -716,7 +798,7 @@ else:
         font-weight: 700 !important;
     }
     
-    /* Receipt Box */
+    /* Professional Digital e-Receipt Box */
     .receipt-box {
         background: #FFFFFF !important;
         border: 2px dashed #CBD5E1 !important;
@@ -724,7 +806,7 @@ else:
         padding: 1.8rem !important;
         font-family: 'JetBrains Mono', monospace !important;
         color: #0F172A !important;
-        box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06) !important;
+        box-shadow: 0 4px 16px rgba(15, 23, 42, 0.06) !important;
         position: relative !important;
     }
     .receipt-header {
@@ -772,21 +854,54 @@ else:
         color: #0F172A !important;
         font-weight: 700 !important;
     }
+    div[data-testid="stExpander"] details summary:hover {
+        color: #2563EB !important;
+    }
     
     /* Clean Accessible Status Alerts */
     div[data-testid="stAlert"] {
         border-radius: 10px !important;
         font-weight: 500 !important;
+        border: 1px solid #CBD5E1 !important;
     }
     div[data-testid="stAlert"] [data-testid="stMarkdownContainer"] p {
         color: inherit !important;
     }
+    div[data-testid="stAlert"]:has([data-testid="stNotificationContentSuccess"]) {
+        background-color: #F0FDF4 !important;
+        color: #166534 !important;
+        border-color: #BBF7D0 !important;
+    }
+    div[data-testid="stAlert"]:has([data-testid="stNotificationContentInfo"]) {
+        background-color: #EFF6FF !important;
+        color: #1E40AF !important;
+        border-color: #BFDBFE !important;
+    }
+    div[data-testid="stAlert"]:has([data-testid="stNotificationContentWarning"]) {
+        background-color: #FFFBEB !important;
+        color: #92400E !important;
+        border-color: #FDE68A !important;
+    }
+    div[data-testid="stAlert"]:has([data-testid="stNotificationContentError"]) {
+        background-color: #FEF2F2 !important;
+        color: #991B1B !important;
+        border-color: #FECACA !important;
+    }
     
     /* Built-in Streamlit Metrics */
+    div[data-testid="stMetric"] {
+        background: #FFFFFF !important;
+        border: 1px solid #CBD5E1 !important;
+        border-radius: 12px !important;
+        padding: 0.9rem 1.1rem !important;
+        box-shadow: 0 2px 6px rgba(15, 23, 42, 0.04) !important;
+    }
     div[data-testid="stMetricLabel"] {
         color: #475569 !important;
         font-weight: 700 !important;
-        font-size: 0.85rem !important;
+        font-size: 0.82rem !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.05em !important;
     }
     div[data-testid="stMetricValue"] {
         color: #0F172A !important;
@@ -794,7 +909,7 @@ else:
         font-family: 'JetBrains Mono', monospace !important;
     }
     
-    /* Code Blocks */
+    /* Code Blocks & Deep Neural Topology Technical Panels */
     code {
         background: #F1F5F9 !important;
         color: #0F172A !important;
@@ -802,21 +917,70 @@ else:
         border-radius: 4px !important;
         padding: 2px 6px !important;
     }
+    div[data-testid="stCodeBlock"] {
+        background-color: #FFFFFF !important;
+        border: 1px solid #CBD5E1 !important;
+        border-radius: 12px !important;
+        box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04) !important;
+    }
     div[data-testid="stCodeBlock"] pre {
         background-color: #F8FAFC !important;
-        border: 1px solid #CBD5E1 !important;
+        border: none !important;
         color: #0F172A !important;
         border-radius: 10px !important;
+        padding: 1.2rem !important;
+        font-family: 'JetBrains Mono', monospace !important;
+    }
+    div[data-testid="stCodeBlock"] pre code {
+        background-color: transparent !important;
+        border: none !important;
+        color: #0F172A !important;
     }
     
-    /* Dataframe / Table Visibility */
+    /* Dataframes & Tables */
     div[data-testid="stDataFrame"] {
         background: #FFFFFF !important;
         border: 1px solid #CBD5E1 !important;
         border-radius: 10px !important;
+        box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04) !important;
+    }
+    table {
+        border-collapse: collapse !important;
+        width: 100% !important;
+        background: #FFFFFF !important;
+        border: 1px solid #CBD5E1 !important;
+        border-radius: 10px !important;
+        overflow: hidden !important;
+    }
+    thead th {
+        background-color: #EFF6FF !important;
+        color: #1E3A8A !important;
+        font-weight: 700 !important;
+        border: 1px solid #CBD5E1 !important;
+        padding: 0.75rem 1rem !important;
+        text-align: left !important;
+        font-size: 0.88rem !important;
+    }
+    tbody td {
+        background-color: #FFFFFF !important;
+        color: #0F172A !important;
+        border: 1px solid #E2E8F0 !important;
+        padding: 0.75rem 1rem !important;
+        font-size: 0.88rem !important;
+    }
+    tbody tr:nth-child(even) td {
+        background-color: #F8FAFC !important;
+    }
+    tbody tr:hover td {
+        background-color: #F1F5F9 !important;
+    }
+
+    /* Progress Bar */
+    div[data-testid="stProgress"] > div > div > div > div {
+        background: linear-gradient(90deg, #2563EB, #0891B2) !important;
     }
     
-    /* Surcharge LED Indicators (Sharp & Crisp) */
+    /* Surcharge LED Indicators */
     .status-led {
         display: inline-block;
         width: 8px;
@@ -1563,7 +1727,7 @@ with tab_main:
     with col_hud:
         jfk_badge_html = f'<div style="background: {"rgba(245, 158, 11, 0.25)" if is_night_theme else "#FEF3C7"}; border: 1px solid {"#F59E0B" if is_night_theme else "#D97706"}; color: {"#FDE68A" if is_night_theme else "#92400E"}; padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 700; margin-bottom: 0.5rem; display: inline-block;">✈️ JFK AIRPORT FLAT-RATE REGIME ($70.00)</div>' if toggle_jfk_flat else ''
         
-        tip_notice_html = f'<div style="font-size: 0.82rem; color: #FDE68A; margin-top: -0.1rem; margin-bottom: 0.4rem;">★ Includes 18% Gratuity (Base: ${pred_fare:.2f} + Tip: ${meter_display_fare - pred_fare:.2f})</div>' if toggle_tip else ''
+        tip_notice_html = f'<div style="font-size: 0.82rem; color: {"#FDE68A" if is_night_theme else "#2563EB"}; margin-top: -0.1rem; margin-bottom: 0.4rem; font-weight: 600;">★ Includes 18% Gratuity (Base: ${pred_fare:.2f} + Tip: ${meter_display_fare - pred_fare:.2f})</div>' if toggle_tip else ''
 
         st.markdown(f"""
         <div class="taximeter-hud">
@@ -1574,7 +1738,7 @@ with tab_main:
             <div class="taximeter-ci">
                 95% Empirical Prediction Interval: <b>${max(2.50, meter_display_fare - 1.60):.2f} – ${meter_display_fare + 1.60:.2f}</b>
             </div>
-            <div style="font-size: 0.8rem; color: #D1FAE5; margin-top: 0.8rem;">
+            <div style="font-size: 0.8rem; color: {'#D1FAE5' if is_night_theme else '#64748B'}; margin-top: 0.8rem;">
                 Trained with Huber Loss (δ=1.0) & Batch Normalization on NYC TLC Telemetry
             </div>
         </div>
@@ -1589,17 +1753,17 @@ with tab_main:
             number={'prefix': "$", 'font': {'size': 28, 'color': '#F8FAFC' if is_night_theme else '#0F172A', 'family': 'JetBrains Mono'}},
             gauge={
                 'axis': {'range': [0, max(85, meter_display_fare * 1.3)], 'tickwidth': 1, 'tickcolor': chart_grid_color},
-                'bar': {'color': "#10B981", 'thickness': 0.32},
+                'bar': {'color': "#10B981" if is_night_theme else "#2563EB", 'thickness': 0.32},
                 'bgcolor': chart_gauge_bg,
                 'borderwidth': 1,
                 'bordercolor': chart_gauge_border,
                 'steps': [
-                    {'range': [0, 15], 'color': 'rgba(56, 189, 248, 0.25)'},
-                    {'range': [15, 45], 'color': 'rgba(245, 158, 11, 0.25)'},
-                    {'range': [45, 120], 'color': 'rgba(239, 68, 68, 0.25)'}
+                    {'range': [0, 15], 'color': 'rgba(56, 189, 248, 0.25)' if is_night_theme else '#EFF6FF'},
+                    {'range': [15, 45], 'color': 'rgba(245, 158, 11, 0.25)' if is_night_theme else '#FEF3C7'},
+                    {'range': [45, 120], 'color': 'rgba(239, 68, 68, 0.25)' if is_night_theme else '#FEE2E2'}
                 ],
                 'threshold': {
-                    'line': {'color': "#F59E0B", 'width': 3},
+                    'line': {'color': "#F59E0B" if is_night_theme else "#2563EB", 'width': 3},
                     'thickness': 0.8,
                     'value': meter_display_fare
                 }
@@ -1892,10 +2056,10 @@ with tab_battle:
             orientation="h",
             color="Type",
             color_discrete_map={
-                "Deep Learning": "#10B981" if is_night_theme else "#16A34A",
-                "Gradient Boosting": "#38BDF8" if is_night_theme else "#0284C7",
+                "Deep Learning": "#10B981" if is_night_theme else "#2563EB",
+                "Gradient Boosting": "#38BDF8" if is_night_theme else "#0891B2",
                 "Linear Baseline": "#F59E0B" if is_night_theme else "#D97706",
-                "Regulatory Rule": "#94A3B8" if is_night_theme else "#475569"
+                "Regulatory Rule": "#94A3B8" if is_night_theme else "#64748B"
             },
             text="Predicted Fare ($)"
         )
@@ -1921,14 +2085,14 @@ with tab_battle:
             theta=categories,
             fill='toself',
             name='PyTorch DNN',
-            line_color='#10B981' if is_night_theme else '#16A34A'
+            line_color='#10B981' if is_night_theme else '#2563EB'
         ))
         fig_radar.add_trace(go.Scatterpolar(
             r=[0.842, 0.80, 0.94, 0.90, 0.85],
             theta=categories,
             fill='toself',
             name='LightGBM',
-            line_color='#38BDF8' if is_night_theme else '#0284C7'
+            line_color='#38BDF8' if is_night_theme else '#0891B2'
         ))
         fig_radar.add_trace(go.Scatterpolar(
             r=[0.605, 0.40, 0.99, 0.30, 0.45],
@@ -1991,8 +2155,8 @@ with tab_whatif:
             title="Predicted Fare vs. Hour of Day (24-Hour Diurnal Profile)",
             labels={"x": "Hour of Day (0 = 12 AM Midnight, 23 = 11 PM)", "y": "Estimated Fare ($ USD)"}
         )
-        fig_sim.add_vline(x=trip_time.hour, line_dash="dash", line_color="#F59E0B" if is_night_theme else "#D97706", annotation_text="Selected Time")
-        fig_sim.update_traces(line_color="#38BDF8" if is_night_theme else "#0284C7", marker=dict(size=7, color="#10B981" if is_night_theme else "#16A34A"))
+        fig_sim.add_vline(x=trip_time.hour, line_dash="dash", line_color="#F59E0B" if is_night_theme else "#2563EB", annotation_text="Selected Time")
+        fig_sim.update_traces(line_color="#38BDF8" if is_night_theme else "#2563EB", marker=dict(size=7, color="#10B981" if is_night_theme else "#0891B2"))
         fig_sim.update_layout(
             paper_bgcolor='rgba(0,0,0,0)',
             plot_bgcolor='rgba(0,0,0,0)',
@@ -2006,14 +2170,18 @@ with tab_whatif:
             st.plotly_chart(fig_sim, use_container_width=True)
             
         with col_sim2:
-            st.markdown("#### 💡 Dynamic Pricing & Surge Intelligence")
             min_fare_h = hours[np.argmin(hour_fares)]
             max_fare_h = hours[np.argmax(hour_fares)]
             st.markdown(f"""
-            - **Lowest Fare Window:** `{min_fare_h}:00` (${min(hour_fares):.2f}) — optimal travel window with lower congestion.
-            - **Peak Fare Window:** `{max_fare_h}:00` (${max(hour_fares):.2f}) — accounts for rush-hour surcharge & commuter bottleneck.
-            - **Temporal Surge Delta:** `${max(hour_fares) - min(hour_fares):.2f}` dynamic variation on this exact trajectory.
-            """)
+            <div class="glass-card" style="margin-bottom: 0.8rem;">
+                <h4 style="margin-top: 0; color: {'#F1F5F9' if is_night_theme else '#0F172A'};">💡 Dynamic Pricing & Surge Intelligence</h4>
+                <ul style="margin-bottom: 0.5rem; padding-left: 1.2rem; color: {'#94A3B8' if is_night_theme else '#334155'};">
+                    <li><b>Lowest Fare Window:</b> <code style="color: {'#38BDF8' if is_night_theme else '#2563EB'};">{min_fare_h}:00</code> (${min(hour_fares):.2f}) — optimal travel window with lower congestion.</li>
+                    <li><b>Peak Fare Window:</b> <code style="color: {'#F59E0B' if is_night_theme else '#D97706'};">{max_fare_h}:00</code> (${max(hour_fares):.2f}) — rush-hour surcharge & commuter bottleneck.</li>
+                    <li><b>Temporal Surge Delta:</b> <b style="color: {'#10B981' if is_night_theme else '#0891B2'};">${max(hour_fares) - min(hour_fares):.2f}</b> dynamic variation on this exact trajectory.</li>
+                </ul>
+            </div>
+            """, unsafe_allow_html=True)
             
             # Passenger Sensitivity Curve
             p_counts = list(range(1, 7))
@@ -2032,7 +2200,13 @@ with tab_whatif:
                 p_preds = dnn_model(torch.tensor(p_scaled, dtype=torch.float32)).numpy().flatten()
             p_fares = [max(2.50, round(float(f) * weather_mult, 2)) for f in p_preds]
             
-            st.markdown(f"**Occupancy Sensitivity (1 to 6 Passengers):** Range: `${min(p_fares):.2f}` – `${max(p_fares):.2f}`. Confirms model correctly separates physical distance from vehicle occupancy while slightly adjusting for larger groups.")
+            st.markdown(f"""
+            <div class="glass-card">
+                <span style="font-size: 0.85rem; color: {'#94A3B8' if is_night_theme else '#475569'};">
+                    <b>Occupancy Sensitivity (1 to 6 Passengers):</b> Range: <b style="color: {'#38BDF8' if is_night_theme else '#2563EB'};">${min(p_fares):.2f}</b> – <b style="color: {'#38BDF8' if is_night_theme else '#2563EB'};">${max(p_fares):.2f}</b>. Confirms model correctly separates physical distance from vehicle occupancy while slightly adjusting for larger groups.
+                </span>
+            </div>
+            """, unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
 # TAB 4: OFFICIAL NYC TLC DIGITAL E-RECEIPT
@@ -2183,16 +2357,20 @@ with tab_theory:
         """)
         
     with col_topo2:
-        st.markdown("#### ⚡ Live Layer Activation Probe")
         if layer_activations:
             st.markdown(f"""
-            - **Input Feature Vector Dimension:** `33 Features`
-            - **Hidden Layer 1 Mean Activation:** `{layer_activations.get('L1_mean', 0.0):.4f}` *(ReLU Activated)*
-            - **Hidden Layer 2 Mean Activation:** `{layer_activations.get('L2_mean', 0.0):.4f}` *(ReLU Activated)*
-            - **Hidden Layer 3 Mean Activation:** `{layer_activations.get('L3_mean', 0.0):.4f}` *(ReLU Activated)*
-            - **Total Trainable Parameters:** `17,921 Weights & Biases`
-            - **Inference Latency:** `{infer_duration_ms:.2f} ms`
-            """)
+            <div class="glass-card">
+                <h4 style="margin-top: 0; color: {'#F1F5F9' if is_night_theme else '#0F172A'};">⚡ Live Layer Activation Probe</h4>
+                <ul style="margin-bottom: 0.5rem; padding-left: 1.2rem; color: {'#94A3B8' if is_night_theme else '#334155'};">
+                    <li><b>Input Feature Dimension:</b> <code style="color: {'#38BDF8' if is_night_theme else '#2563EB'};">33 Features</code></li>
+                    <li><b>Hidden Layer 1 Mean:</b> <code style="color: {'#10B981' if is_night_theme else '#16A34A'};">{layer_activations.get('L1_mean', 0.0):.4f}</code> (ReLU)</li>
+                    <li><b>Hidden Layer 2 Mean:</b> <code style="color: {'#10B981' if is_night_theme else '#16A34A'};">{layer_activations.get('L2_mean', 0.0):.4f}</code> (ReLU)</li>
+                    <li><b>Hidden Layer 3 Mean:</b> <code style="color: {'#10B981' if is_night_theme else '#16A34A'};">{layer_activations.get('L3_mean', 0.0):.4f}</code> (ReLU)</li>
+                    <li><b>Total Parameters:</b> <code style="color: {'#F59E0B' if is_night_theme else '#D97706'};">17,921 Weights & Biases</code></li>
+                    <li><b>Inference Latency:</b> <code style="color: {'#38BDF8' if is_night_theme else '#2563EB'};">{infer_duration_ms:.2f} ms</code></li>
+                </ul>
+            </div>
+            """, unsafe_allow_html=True)
         else:
             st.info("Load PyTorch model to inspect live neuron activations.")
             
@@ -2207,7 +2385,7 @@ with tab_theory:
     
     fig_loss = go.Figure()
     fig_loss.add_trace(go.Scatter(x=errors, y=mse_vals, mode="lines", name="Mean Squared Error (MSE)", line=dict(color="#EF4444" if is_night_theme else "#DC2626", dash="dash")))
-    fig_loss.add_trace(go.Scatter(x=errors, y=mae_vals, mode="lines", name="Mean Absolute Error (MAE)", line=dict(color="#38BDF8" if is_night_theme else "#0284C7", dash="dot")))
+    fig_loss.add_trace(go.Scatter(x=errors, y=mae_vals, mode="lines", name="Mean Absolute Error (MAE)", line=dict(color="#38BDF8" if is_night_theme else "#0891B2", dash="dot")))
     fig_loss.add_trace(go.Scatter(x=errors, y=huber_vals, mode="lines", name=f"Huber Loss (δ={delta_val:.1f})", line=dict(color="#10B981" if is_night_theme else "#16A34A", width=3)))
     
     fig_loss.update_layout(
