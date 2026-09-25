@@ -47,6 +47,14 @@ RESULTS_DIR = os.path.join(BASE_DIR, "results")
 MODELS_DIR = os.path.join(BASE_DIR, "saved_models")
 sys.path.append(SRC_DIR)
 
+import importlib
+for _mod in ["feature_engineering", "dnn_model", "geocoding", "routing", "fare_engine", "explainability", "trip_history", "uncertainty", "model_comparison", "model_monitoring", "weather_service", "traffic_service"]:
+    if _mod in sys.modules:
+        try:
+            importlib.reload(sys.modules[_mod])
+        except Exception:
+            pass
+
 from feature_engineering import extract_features, haversine_distance, FEATURE_COLS
 from dnn_model import TaxiFareDNN
 from geocoding import geocode_address, is_in_nyc_bbox
@@ -105,6 +113,11 @@ from traffic_service import (
 )
 
 logger = logging.getLogger(__name__)
+
+def render_clean_html(html_str: str) -> None:
+    """Safely renders HTML via st.markdown by stripping comments, newlines, and leading indentation."""
+    clean = "".join([l.strip() for l in html_str.splitlines() if l.strip() and not l.strip().startswith("<!--")])
+    st.markdown(clean, unsafe_allow_html=True)
 
 # Initialise trip-history DB on startup (idempotent)
 try:
@@ -2438,7 +2451,7 @@ ${fare_comp['absolute_difference']:.2f} <span style="font-size: 0.8rem; font-wei
 
         # Scientific Prediction Uncertainty Card (Feature #5)
         if dnn_interval and dnn_interval.get("status") == "success":
-            st.markdown(create_uncertainty_badge_html(dnn_interval, is_night_theme=is_night_theme), unsafe_allow_html=True)
+            render_clean_html(create_uncertainty_badge_html(dnn_interval, is_night_theme=is_night_theme))
             with st.expander("ℹ️ What does this prediction interval mean?", expanded=False):
                 st.markdown(f"""
                 - **Coverage Level:** **{dnn_interval.get('coverage_percent', '95%')}** marginal empirical coverage.
