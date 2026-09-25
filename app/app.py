@@ -2127,7 +2127,6 @@ Trip Date: <b>{trip_date.strftime('%b %d, %Y')}</b> &nbsp;|&nbsp; Departure: <b>
 </div>
 </div>
 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.2rem;">
-<!-- Left: Trip Parameters -->
 <div style="background: {'rgba(15, 23, 42, 0.45)' if is_night_theme else '#F8FAFC'}; border: 1px solid {card_border}; border-radius: 12px; padding: 1rem 1.1rem;">
 <div style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: {'#38BDF8' if is_night_theme else '#2563EB'}; margin-bottom: 0.6rem;">
 TRIP
@@ -2159,7 +2158,6 @@ TRIP
 </div>
 </div>
 </div>
-<!-- Right: Fare Comparison Box -->
 <div style="background: {'rgba(15, 23, 42, 0.45)' if is_night_theme else '#F8FAFC'}; border: 1px solid {card_border}; border-radius: 12px; padding: 1rem 1.1rem; display: flex; flex-direction: column; justify-content: space-between;">
 <div>
 <div style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: {'#38BDF8' if is_night_theme else '#2563EB'}; margin-bottom: 0.6rem;">
@@ -2452,39 +2450,34 @@ ${fare_comp['absolute_difference']:.2f} <span style="font-size: 0.8rem; font-wei
 
         # Real Model Explainability Card (Feature #4)
         if dnn_explanation and dnn_explanation.get("status") == "success":
-            top_factors_html = ""
+            top_factors_parts = []
+            factor_sub_color = '#94A3B8' if is_night_theme else '#64748B'
             for feat in dnn_explanation["top_features"]:
                 impact_badge_bg = "rgba(56, 189, 248, 0.15)" if is_night_theme else "#EFF6FF"
                 impact_badge_border = "#38BDF8" if is_night_theme else "#BFDBFE"
                 impact_badge_text = "#38BDF8" if is_night_theme else "#1D4ED8"
                 dir_color = "#10B981" if feat["direction"] == "positive" else ("#F43F5E" if is_night_theme else "#DC2626")
+                factor_card_bg = "rgba(255,255,255,0.03)" if is_night_theme else "#FFFFFF"
+                factor_card_border = "rgba(255,255,255,0.06)" if is_night_theme else "#E2E8F0"
                 
-                top_factors_html += f"""
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.45rem; padding: 0.4rem 0.65rem; border-radius: 8px; background: {'rgba(255,255,255,0.03)' if is_night_theme else '#FFFFFF'}; border: 1px solid {'rgba(255,255,255,0.06)' if is_night_theme else '#E2E8F0'};">
-                    <div style="display: flex; align-items: center; gap: 0.5rem;">
-                        <span style="font-size: 0.95rem;">{feat['icon']}</span>
-                        <div>
-                            <div style="font-size: 0.83rem; font-weight: 600; color: {card_text}; line-height: 1.2;">
-                                {feat['display_name']}
-                            </div>
-                            <div style="font-size: 0.68rem; color: {'#94A3B8' if is_night_theme else '#64748B'};">
-                                {feat['category']}
-                            </div>
-                        </div>
-                    </div>
-                    <div style="display: flex; align-items: center; gap: 0.6rem;">
-                        <span style="font-family: 'JetBrains Mono', monospace; font-size: 0.88rem; font-weight: 700; color: {dir_color};">
-                            {feat['formatted_delta']}
-                        </span>
-                        <span style="background: {impact_badge_bg}; border: 1px solid {impact_badge_border}; color: {impact_badge_text}; font-size: 0.67rem; font-weight: 700; padding: 0.15rem 0.45rem; border-radius: 6px; white-space: nowrap;">
-                            {feat['impact_level']}
-                        </span>
-                    </div>
-                </div>
-                """
+                top_factors_parts.append(
+                    f'<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.45rem; padding: 0.4rem 0.65rem; border-radius: 8px; background: {factor_card_bg}; border: 1px solid {factor_card_border};">'
+                    f'<div style="display: flex; align-items: center; gap: 0.5rem;">'
+                    f'<span style="font-size: 0.95rem;">{feat["icon"]}</span>'
+                    f'<div>'
+                    f'<div style="font-size: 0.83rem; font-weight: 600; color: {card_text}; line-height: 1.2;">{feat["display_name"]}</div>'
+                    f'<div style="font-size: 0.68rem; color: {factor_sub_color};">{feat["category"]}</div>'
+                    f'</div>'
+                    f'</div>'
+                    f'<div style="display: flex; align-items: center; gap: 0.6rem;">'
+                    f'<span style="font-family: \'JetBrains Mono\', monospace; font-size: 0.88rem; font-weight: 700; color: {dir_color};">{feat["formatted_delta"]}</span>'
+                    f'<span style="background: {impact_badge_bg}; border: 1px solid {impact_badge_border}; color: {impact_badge_text}; font-size: 0.67rem; font-weight: 700; padding: 0.15rem 0.45rem; border-radius: 6px; white-space: nowrap;">{feat["impact_level"]}</span>'
+                    f'</div>'
+                    f'</div>'
+                )
+            top_factors_html = "".join(top_factors_parts)
 
-            st.markdown(f"""
-<div style="background: {card_bg}; border: 1px solid {card_border}; border-radius: 14px; padding: 1.1rem 1.3rem; margin: 0.8rem 0; box-shadow: 0 4px 14px rgba(0,0,0,0.04);">
+            st.markdown(f"""<div style="background: {card_bg}; border: 1px solid {card_border}; border-radius: 14px; padding: 1.1rem 1.3rem; margin: 0.8rem 0; box-shadow: 0 4px 14px rgba(0,0,0,0.04);">
 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; border-bottom: 1px solid {card_border}; padding-bottom: 0.45rem; flex-wrap: wrap; gap: 0.4rem;">
 <div style="font-size: 0.82rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: {'#38BDF8' if is_night_theme else '#0284C7'};">
 🧠 WHY THIS PREDICTION? (MODEL ATTRIBUTION)
@@ -2493,7 +2486,6 @@ ${fare_comp['absolute_difference']:.2f} <span style="font-size: 0.8rem; font-wei
 Method: <b>Integrated Gradients</b>
 </div>
 </div>
-<!-- Base vs Final Prediction Pathway -->
 <div style="display: flex; justify-content: space-between; align-items: center; background: {'rgba(15, 23, 42, 0.4)' if is_night_theme else '#F8FAFC'}; border: 1px solid {card_border}; border-radius: 10px; padding: 0.65rem 0.85rem; margin-bottom: 0.8rem; font-size: 0.78rem;">
 <div>
 <div style="color: {'#94A3B8' if is_night_theme else '#64748B'}; font-size: 0.7rem;">Average Trip Base</div>
@@ -2514,8 +2506,7 @@ Method: <b>Integrated Gradients</b>
 Top Influencing Factors for this Trip:
 </div>
 {top_factors_html}
-</div>
-""", unsafe_allow_html=True)
+</div>""", unsafe_allow_html=True)
 
             with st.expander("🔍 Deep Model Attribution, Waterfall & Global Insights", expanded=False):
                 t_tab1, t_tab2, t_tab3 = st.tabs(["📊 Contribution Chart", "🌊 Waterfall Path", "🌐 Global Insights"])
