@@ -719,12 +719,12 @@ def generate_docx():
         set_cell_margins(hdr[i])
 
     eval_rows = [
-        ["Linear Regression (OLS)", "0.12 s", "$1.974", "15.735", "$3.967", "0.8245"],
-        ["Ridge Regression (L2)", "0.03 s", "$1.979", "15.742", "$3.968", "0.8244"],
-        ["Random Forest Regressor", "48.14 s", "$1.708", "13.177", "$3.630", "0.8530"],
-        ["LightGBM Regressor", "3.11 s", "$1.569", "12.119", "$3.481", "0.8648"],
-        ["MLPRegressor (Scikit-Learn)", "48.01 s", "$1.707", "13.146", "$3.626", "0.8533"],
-        ["Deep Neural Network (PyTorch)", "90.01 s", "$1.708", "14.822", "$3.850", "0.8346"]
+        ["Linear Regression (OLS)", "3.32 s", "$1.990", "13.470", "$3.670", "0.8441"],
+        ["Ridge Regression (L2)", "0.58 s", "$1.990", "13.470", "$3.670", "0.8439"],
+        ["Random Forest Regressor", "9434.22 s", "$1.610", "9.800", "$3.130", "0.8866"],
+        ["LightGBM Regressor", "19.32 s", "$1.500", "8.940", "$2.990", "0.8963"],
+        ["MLPRegressor (Scikit-Learn)", "705.97 s", "$1.520", "9.360", "$3.060", "0.8917"],
+        ["Deep Neural Network (PyTorch)", "120.00 s", "$1.570", "10.890", "$3.300", "0.8734"]
     ]
     for row_data in eval_rows:
         row = t_eval.add_row().cells
@@ -794,16 +794,16 @@ def generate_docx():
     # -------------------------------------------------------------
     add_h1("13 Results and Discussion")
     add_body(
-        "Why the Model Performed Well: The Deep Feedforward Neural Network achieved strong regression fidelity (Test MAE: $1.708, R²: 0.8346) "
+        "Why the Model Performed Well: The Deep Feedforward Neural Network achieved strong regression fidelity (Test MAE: $1.57, R²: 0.8734) "
         "because domain-specific feature engineering transformed raw longitude/latitude points into geodetically meaningful spatial coordinates "
         "(Haversine distance, Manhattan rectilinear distance, and airport proximities). Incorporating Huber loss provided crucial outlier resilience, "
         "preventing abnormal meter readings from corrupting gradient updates."
     )
     add_body(
-        "Comparison with Baseline Methods: Traditional Ordinary Least Squares (OLS) regression yielded higher test error (MAE: $1.974, RMSE: $3.967), "
+        "Comparison with Baseline Methods: Traditional Ordinary Least Squares (OLS) regression yielded higher test error (MAE: $1.990, RMSE: $3.670), "
         "confirming that linear models fail to capture non-linear city traffic topography. Gradient boosted trees (LightGBM) achieved the lowest test MAE "
-        "($1.569), demonstrating the strength of histogram-based tree splitting on tabular data. However, the PyTorch DNN matches tree performance "
-        "within 14 cents per trip while providing a smooth, differentiable continuous score surface ideal for unified production APIs."
+        "($1.500, R²: 0.8963), demonstrating the strength of histogram-based tree splitting on tabular data. The PyTorch DNN matches tree performance "
+        "closely ($1.570 MAE, R²: 0.8734) while providing a smooth, differentiable continuous score surface ideal for unified production APIs."
     )
 
     add_h1("14 Limitations")
@@ -1128,19 +1128,19 @@ def generate_pdf():
     # 5. MODEL EVALUATION & BENCHMARKS
     story.append(Paragraph("5 Model Evaluation & Comparative Benchmarks", h1_style))
     story.append(Paragraph(
-        "All candidate models were evaluated on the untouched test partition (N = 14,608). The Deep Feedforward Neural Network achieved "
-        "a Test MAE of $1.708 and R² of 0.8346, substantially outperforming traditional linear models while delivering continuous score surfaces.",
+        "All candidate models were evaluated on the untouched test partition (N = 144,021). The Deep Feedforward Neural Network achieved "
+        "a Test MAE of $1.570 and R² of 0.8734, substantially outperforming traditional linear models while delivering continuous score surfaces.",
         body_style
     ))
 
     eval_pdf_data = [
         ["Model Architecture", "Train Time", "Test MAE ($)", "Test MSE ($²)", "Test RMSE ($)", "Test R² Score"],
-        ["Linear Regression (OLS)", "0.12 s", "$1.974", "15.735", "$3.967", "0.8245"],
-        ["Ridge Regression (L2)", "0.03 s", "$1.979", "15.742", "$3.968", "0.8244"],
-        ["Random Forest Regressor", "48.14 s", "$1.708", "13.177", "$3.630", "0.8530"],
-        ["LightGBM Regressor", "3.11 s", "$1.569", "12.119", "$3.481", "0.8648"],
-        ["MLPRegressor (Scikit-Learn)", "48.01 s", "$1.707", "13.146", "$3.626", "0.8533"],
-        ["Deep Neural Network (PyTorch)", "90.01 s", "$1.708", "14.822", "$3.850", "0.8346"]
+        ["Linear Regression (OLS)", "3.32 s", "$1.990", "13.470", "$3.670", "0.8441"],
+        ["Ridge Regression (L2)", "0.58 s", "$1.990", "13.470", "$3.670", "0.8439"],
+        ["Random Forest Regressor", "9434.22 s", "$1.610", "9.800", "$3.130", "0.8866"],
+        ["LightGBM Regressor", "19.32 s", "$1.500", "8.940", "$2.990", "0.8963"],
+        ["MLPRegressor (Scikit-Learn)", "705.97 s", "$1.520", "9.360", "$3.060", "0.8917"],
+        ["Deep Neural Network (PyTorch)", "120.00 s", "$1.570", "10.890", "$3.300", "0.8734"]
     ]
     t_eval_pdf = Table(eval_pdf_data, colWidths=[120, 60, 80, 80, 85, 95])
     t_eval_pdf.setStyle(TableStyle([

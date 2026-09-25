@@ -15,7 +15,9 @@ import pandas as pd
 from sklearn.model_selection import train_test_split
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-RAW_CSV_PATH = os.path.join(BASE_DIR, "data", "raw", "train_sample_100k.csv")
+DATASET_CSV_PATH = os.path.join(BASE_DIR, "dataset", "train.csv")
+SAMPLE_CSV_PATH = os.path.join(BASE_DIR, "data", "raw", "train_sample_100k.csv")
+RAW_CSV_PATH = DATASET_CSV_PATH if os.path.exists(DATASET_CSV_PATH) else SAMPLE_CSV_PATH
 PROCESSED_DIR = os.path.join(BASE_DIR, "data", "processed")
 
 # NYC Metropolitan Bounding Box
@@ -91,7 +93,10 @@ def create_dataset_splits(random_state: int = 42):
         return train_df, val_df, test_df
         
     print(f"[Preprocessing] Loading raw data from {RAW_CSV_PATH}...")
-    df_raw = pd.read_csv(RAW_CSV_PATH)
+    if os.path.abspath(RAW_CSV_PATH) == os.path.abspath(DATASET_CSV_PATH):
+        df_raw = pd.read_csv(RAW_CSV_PATH, nrows=1000000)
+    else:
+        df_raw = pd.read_csv(RAW_CSV_PATH)
     df_clean = clean_taxi_data(df_raw)
     
     # 70% Train, 30% Temp (which is split into 15% Val and 15% Test)

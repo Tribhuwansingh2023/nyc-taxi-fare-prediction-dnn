@@ -480,10 +480,11 @@ def load_models_and_scaler():
     dnn_model = None
     if os.path.exists(dnn_path):
         checkpoint = torch.load(dnn_path, map_location=torch.device("cpu"), weights_only=False)
-        in_feats = checkpoint.get("in_features", len(FEATURE_COLS))
-        hidden_dims = checkpoint.get("hidden_dims", (128, 64, 32))
+        in_feats = checkpoint.get("in_features", len(FEATURE_COLS)) if isinstance(checkpoint, dict) and "in_features" in checkpoint else len(FEATURE_COLS)
+        hidden_dims = checkpoint.get("hidden_dims", (128, 64, 32)) if isinstance(checkpoint, dict) and "hidden_dims" in checkpoint else (128, 64, 32)
         dnn_model = TaxiFareDNN(in_features=in_feats, hidden_dims=hidden_dims)
-        dnn_model.load_state_dict(checkpoint["state_dict"])
+        state_dict = checkpoint["state_dict"] if isinstance(checkpoint, dict) and "state_dict" in checkpoint else checkpoint
+        dnn_model.load_state_dict(state_dict)
         dnn_model.eval()
         
     baselines = joblib.load(baselines_path) if os.path.exists(baselines_path) else {}
@@ -1295,7 +1296,7 @@ with tab_viz:
     viz_catalog = [
         ("11_dnn_training_validation_loss.png", "DNN Training vs Validation Loss Progression", "Convergence"),
         ("12_loss_functions_comparison.png", "Comparative Convergence: MSE vs MAE vs Huber Loss", "Convergence"),
-        ("13_actual_vs_predicted_fare.png", "DNN Predicted Fare vs Actual Fare (R² = 0.8346)", "Evaluation"),
+        ("13_actual_vs_predicted_fare.png", "DNN Predicted Fare vs Actual Fare (R² = 0.8734)", "Evaluation"),
         ("14_residual_distribution.png", "Residual Error Distribution & Normal Q-Q Plot", "Evaluation"),
         ("15_model_comparison_bar.png", "Model Benchmark Comparison (MAE & R² Scores)", "Evaluation"),
         ("01_fare_distribution.png", "Target Fare Amount Distribution & Skewness", "EDA"),

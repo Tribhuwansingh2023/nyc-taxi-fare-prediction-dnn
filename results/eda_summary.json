@@ -1,46 +1,46 @@
 {
-    "total_raw_records": 100000,
-    "clean_records": 97381,
-    "retention_percentage": 97.38,
+    "total_raw_records": 1000000,
+    "clean_records": 974427,
+    "retention_percentage": 97.44,
     "missing_counts": {
         "key": 0,
         "fare_amount": 0,
         "pickup_datetime": 0,
         "pickup_longitude": 0,
         "pickup_latitude": 0,
-        "dropoff_longitude": 0,
-        "dropoff_latitude": 0,
+        "dropoff_longitude": 10,
+        "dropoff_latitude": 10,
         "passenger_count": 0
     },
     "anomalies": {
-        "negative_fares": 9,
-        "zero_fares": 3,
-        "low_fares_under_2_50": 2,
-        "extreme_fares_over_250": 0,
-        "invalid_passengers": 366,
-        "geographical_outliers": 2247
+        "negative_fares": 38,
+        "zero_fares": 29,
+        "low_fares_under_2_50": 10,
+        "extreme_fares_over_250": 14,
+        "invalid_passengers": 3566,
+        "geographical_outliers": 22001
     },
     "fare_stats": {
-        "mean": 11.31,
+        "mean": 11.3,
         "median": 8.5,
-        "std": 9.45,
+        "std": 9.41,
         "min": 2.5,
         "max": 150.0,
         "p25": 6.0,
         "p75": 12.5
     },
     "distance_stats": {
-        "mean_km": 3.32,
-        "median_km": 2.16,
-        "std_km": 3.56,
+        "mean_km": 3.31,
+        "median_km": 2.15,
+        "std_km": 3.55,
         "max_km": 45.64
     },
     "passenger_distribution": {
-        "1": 67999,
-        "2": 14262,
-        "3": 4208,
-        "4": 2039,
-        "5": 6870,
-        "6": 2003
+        "1": 675750,
+        "2": 145091,
+        "3": 42825,
+        "4": 20974,
+        "5": 69032,
+        "6": 20755
     }
 }

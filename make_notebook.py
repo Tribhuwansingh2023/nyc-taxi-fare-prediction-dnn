@@ -419,6 +419,8 @@ plt.xlabel("Epoch")
 plt.ylabel("MAE ($)")
 plt.legend()
 plt.tight_layout()
+os.makedirs("../visualizations", exist_ok=True)
+plt.savefig("../visualizations/11_dnn_training_validation_loss.png", dpi=300)
 plt.show()""")
 
     # Cell 10: Final Evaluation
@@ -456,6 +458,7 @@ plt.axvline(0, color="#DC2626", linestyle="--")
 plt.title("Residual Distribution (Predicted - Actual)")
 plt.xlabel("Residual ($)")
 plt.tight_layout()
+plt.savefig("../visualizations/13_actual_vs_predicted_fare.png", dpi=300)
 plt.show()""")
 
     # Cell 11: Deployment & Inference Demonstration

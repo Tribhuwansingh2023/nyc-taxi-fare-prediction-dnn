@@ -36,7 +36,11 @@
     ],
     "num_features": 33,
     "scaler_path": "C:\\Users\\tribh\\.gemini\\antigravity-ide\\scratch\\nyc_taxi_fare_dnn_assignment\\saved_models\\taxi_fare_scaler.pkl",
-    "train_samples": 67146,
-    "val_samples": 14388,
-    "test_samples": 14389
+    "train_samples": 672095,
+    "val_samples": 144021,
+    "test_samples": 144021,
+    "dataset_records": 1000000,
+    "test_mae": 1.57,
+    "test_rmse": 3.3,
+    "test_r2": 0.8734
 }

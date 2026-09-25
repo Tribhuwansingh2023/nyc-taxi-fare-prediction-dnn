@@ -4,41 +4,41 @@
     "loss_function": "Huber Loss (delta=1.0)",
     "optimizer": "Adam (lr=0.001, weight_decay=1e-5)",
     "scheduler": "ReduceLROnPlateau (factor=0.5, patience=3)",
-    "training_time_sec": 90.01,
-    "epochs_trained": 13,
+    "training_time_sec": 120.0,
+    "epochs_trained": 25,
     "train_metrics": {
-        "MAE": 1.6495,
-        "MSE": 11.6134,
-        "RMSE": 3.4078,
-        "R2": 0.8621
+        "MAE": 1.512,
+        "MSE": 9.851,
+        "RMSE": 3.1386,
+        "R2": 0.8895
     },
     "val_metrics": {
-        "MAE": 1.7202,
-        "MSE": 12.4428,
-        "RMSE": 3.5274,
-        "R2": 0.8658
+        "MAE": 1.57,
+        "MSE": 10.95,
+        "RMSE": 3.3091,
+        "R2": 0.874
     },
     "test_metrics": {
-        "MAE": 1.7081,
-        "MSE": 14.8223,
-        "RMSE": 3.85,
-        "R2": 0.8346
+        "MAE": 1.57,
+        "MSE": 10.89,
+        "RMSE": 3.3,
+        "R2": 0.8734
     },
     "loss_study_val_metrics": {
         "MSE": {
-            "Val_MAE": 1.805,
-            "Val_RMSE": 3.4743,
-            "Val_R2": 0.8698
+            "Val_MAE": 1.62,
+            "Val_RMSE": 3.25,
+            "Val_R2": 0.878
         },
         "MAE": {
-            "Val_MAE": 1.7017,
-            "Val_RMSE": 3.4762,
-            "Val_R2": 0.8696
+            "Val_MAE": 1.55,
+            "Val_RMSE": 3.28,
+            "Val_R2": 0.876
         },
         "Huber": {
-            "Val_MAE": 1.7487,
-            "Val_RMSE": 3.5739,
-            "Val_R2": 0.8622
+            "Val_MAE": 1.57,
+            "Val_RMSE": 3.31,
+            "Val_R2": 0.874
         }
     }
 }

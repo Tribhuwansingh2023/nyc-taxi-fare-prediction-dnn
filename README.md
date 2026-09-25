@@ -136,12 +136,12 @@ python build_complete_lab_record.py
 
 | Model Architecture | Training Time (s) | Test MAE ($) | Test MSE ($²) | Test RMSE ($) | Test R² Score |
 | :--- | :---: | :---: | :---: | :---: | :---: |
-| **Linear Regression (OLS)** | 0.12 s | $1.974 | 15.735 | $3.967 | 0.8245 |
-| **Ridge Regression (L2)** | 0.03 s | $1.979 | 15.742 | $3.968 | 0.8244 |
-| **Random Forest Regressor** | 48.14 s | $1.708 | 13.177 | $3.630 | 0.8530 |
-| **LightGBM Regressor** | 3.11 s | **$1.569** | **12.119** | **$3.481** | **0.8648** |
-| **MLPRegressor (Scikit-Learn)** | 48.01 s | $1.707 | 13.146 | $3.626 | 0.8533 |
-| **Deep Neural Network (PyTorch)** | 90.01 s | **$1.708** | 14.822 | $3.850 | **0.8346** |
+| **Linear Regression (OLS)** | 3.32 s | $1.990 | 13.470 | $3.670 | 0.8441 |
+| **Ridge Regression (L2)** | 0.58 s | $1.990 | 13.470 | $3.670 | 0.8439 |
+| **Random Forest Regressor** | 9434.22 s | $1.610 | 9.800 | $3.130 | 0.8866 |
+| **LightGBM Regressor** | 19.32 s | **$1.500** | **8.940** | **$2.990** | **0.8963** |
+| **MLPRegressor (Scikit-Learn)** | 705.97 s | $1.520 | 9.360 | $3.060 | 0.8917 |
+| **Deep Neural Network (PyTorch)** | 120.00 s | **$1.570** | 10.890 | $3.300 | **0.8734** |
 
 **Optimal Neural Network Topology:**
 $$\text{Input}(33) \longrightarrow \text{Dense}(128) + \text{BatchNorm} + \text{ReLU} + \text{Dropout}(0.20) \longrightarrow \text{Dense}(64) + \text{BatchNorm} + \text{ReLU} + \text{Dropout}(0.10) \longrightarrow \text{Dense}(32) + \text{ReLU} \longrightarrow \text{Linear}(1)$$

@@ -19,7 +19,9 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-RAW_CSV_PATH = os.path.join(BASE_DIR, "data", "raw", "train_sample_100k.csv")
+DATASET_CSV_PATH = os.path.join(BASE_DIR, "dataset", "train.csv")
+SAMPLE_CSV_PATH = os.path.join(BASE_DIR, "data", "raw", "train_sample_100k.csv")
+RAW_CSV_PATH = DATASET_CSV_PATH if os.path.exists(DATASET_CSV_PATH) else SAMPLE_CSV_PATH
 VIZ_DIR = os.path.join(BASE_DIR, "visualizations")
 RESULTS_DIR = os.path.join(BASE_DIR, "results")
 
@@ -44,10 +46,20 @@ def haversine_np(lon1, lat1, lon2, lat2):
     return km
 
 def run_eda():
-    print("[EDA] Loading raw dataset for EDA...")
-    df = pd.read_csv(RAW_CSV_PATH)
+    print(f"[EDA] Loading raw dataset for EDA from {RAW_CSV_PATH}...")
+    if os.path.abspath(RAW_CSV_PATH) == os.path.abspath(DATASET_CSV_PATH):
+        df = pd.read_csv(RAW_CSV_PATH, nrows=1000000)
+    else:
+        df = pd.read_csv(RAW_CSV_PATH)
     total_raw_records = len(df)
     print(f"[EDA] Total raw records: {total_raw_records:,}")
+    
+    # Save descriptive summary.csv
+    try:
+        df.describe(include="all").to_csv(os.path.join(BASE_DIR, "summary.csv"))
+        print("[EDA] Updated summary.csv saved.")
+    except Exception as e:
+        print("[EDA] Could not update summary.csv:", e)
 
     # Parse pickup_datetime
     df["pickup_datetime"] = pd.to_datetime(df["pickup_datetime"], errors="coerce")
