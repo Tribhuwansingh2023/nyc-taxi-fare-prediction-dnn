@@ -1,0 +1,44 @@
+{
+    "architecture": "Input(33) -> Dense(128, BatchNorm, ReLU, Dropout 0.2) -> Dense(64, BatchNorm, ReLU, Dropout 0.1) -> Dense(32, ReLU) -> Linear(1)",
+    "in_features": 33,
+    "loss_function": "Huber Loss (delta=1.0)",
+    "optimizer": "Adam (lr=0.001, weight_decay=1e-5)",
+    "scheduler": "ReduceLROnPlateau (factor=0.5, patience=3)",
+    "training_time_sec": 90.01,
+    "epochs_trained": 13,
+    "train_metrics": {
+        "MAE": 1.6495,
+        "MSE": 11.6134,
+        "RMSE": 3.4078,
+        "R2": 0.8621
+    },
+    "val_metrics": {
+        "MAE": 1.7202,
+        "MSE": 12.4428,
+        "RMSE": 3.5274,
+        "R2": 0.8658
+    },
+    "test_metrics": {
+        "MAE": 1.7081,
+        "MSE": 14.8223,
+        "RMSE": 3.85,
+        "R2": 0.8346
+    },
+    "loss_study_val_metrics": {
+        "MSE": {
+            "Val_MAE": 1.805,
+            "Val_RMSE": 3.4743,
+            "Val_R2": 0.8698
+        },
+        "MAE": {
+            "Val_MAE": 1.7017,
+            "Val_RMSE": 3.4762,
+            "Val_R2": 0.8696
+        },
+        "Huber": {
+            "Val_MAE": 1.7487,
+            "Val_RMSE": 3.5739,
+            "Val_R2": 0.8622
+        }
+    }
+}
