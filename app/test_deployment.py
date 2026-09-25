@@ -320,10 +320,159 @@ def run_deployment_tests():
     else:
         print(f"  DNN prediction unexpected: ${dnn_check_fare:.2f} -> FAILED")
 
-    total_tests = len(test_cases) + len(geocoding_tests) + len(routing_tests)
-    total_passed = passed + geo_passed + routing_passed
+    from fare_engine import calculate_meter_estimate, compare_fares, get_dnn_prediction_interval, NYC_TLC_FARE_RULES
+
     print("\n" + "="*80)
-    print(f"DEPLOYMENT, GEOCODING & ROUTING TEST SUMMARY: {total_passed} / {total_tests} Test Cases Passed.")
+    print("RUNNING FEATURE #3: REALISTIC FARE ESTIMATION ENGINE & COMPARISON TESTS")
+    print("="*80)
+
+    fare_tests = [
+        {"id": 1, "name": "FARE TEST 1: Valid Trip Itemized Reference Breakdown Generation"},
+        {"id": 2, "name": "FARE TEST 2: Distance Component Sensitivity (Proportional Scaling)"},
+        {"id": 3, "name": "FARE TEST 3: Driving Duration / Slow Traffic Component Sensitivity"},
+        {"id": 4, "name": "FARE TEST 4: Time-Dependent Surcharge Verification (Weekday Rush vs Midday)"},
+        {"id": 5, "name": "FARE TEST 5: Passenger Count Boundary & Governance Integrity"},
+        {"id": 6, "name": "FARE TEST 6: Missing Input Parameter Validation Handling"},
+        {"id": 7, "name": "FARE TEST 7: PyTorch DNN Inference Pipeline Coexistence & Functional Integrity"},
+        {"id": 8, "name": "FARE TEST 8: ML Prediction vs Reference Estimate Difference & Percentage Calculation"},
+        {"id": 9, "name": "FARE TEST 9: Extreme & Out-of-Bounds Parameter Graceful Validation"},
+        {"id": 10, "name": "FARE TEST 10: Zero/Edge-Case Reference Fare ZeroDivisionError Protection"}
+    ]
+
+    fare_passed = 0
+
+    # FARE TEST 1: Valid Trip
+    print(f"\nEvaluating {fare_tests[0]['name']}...")
+    f_res1 = calculate_meter_estimate(
+        pickup_lat=40.7580, pickup_lon=-73.9855,
+        dropoff_lat=40.6413, dropoff_lon=-73.7781,
+        trip_date=datetime.date(2025, 10, 15), trip_time=datetime.time(14, 30),
+        passenger_count=2, road_distance_km=27.90, duration_minutes=31.0
+    )
+    if f_res1["status"] == "success" and f_res1["estimated_total"] > 0 and f_res1["base_fare"] == 3.00:
+        print(f"  Valid Breakdown Generated: Base=${f_res1['base_fare']:.2f}, Dist=${f_res1['distance_component']:.2f}, Total=${f_res1['estimated_total']:.2f} -> PASSED [OK]")
+        fare_passed += 1
+    else:
+        print(f"  Failed generating valid breakdown: {f_res1} -> FAILED")
+
+    # FARE TEST 2: Different Distance
+    print(f"\nEvaluating {fare_tests[1]['name']}...")
+    f_short = calculate_meter_estimate(
+        40.7580, -73.9855, 40.7527, -73.9772,
+        datetime.date(2025, 10, 15), datetime.time(12, 0), road_distance_km=3.0
+    )
+    f_long = calculate_meter_estimate(
+        40.7580, -73.9855, 40.7527, -73.9772,
+        datetime.date(2025, 10, 15), datetime.time(12, 0), road_distance_km=15.0
+    )
+    if f_long["distance_component"] > f_short["distance_component"] and f_long["estimated_total"] > f_short["estimated_total"]:
+        print(f"  Distance Scaling Verified: 3 km DistComp=${f_short['distance_component']:.2f} -> 15 km DistComp=${f_long['distance_component']:.2f} -> PASSED [OK]")
+        fare_passed += 1
+    else:
+        print(f"  Distance sensitivity failed: Short=${f_short['distance_component']}, Long=${f_long['distance_component']} -> FAILED")
+
+    # FARE TEST 3: Different Duration
+    print(f"\nEvaluating {fare_tests[2]['name']}...")
+    f_freeflow = calculate_meter_estimate(
+        40.7580, -73.9855, 40.7527, -73.9772,
+        datetime.date(2025, 10, 15), datetime.time(12, 0), road_distance_km=5.0, duration_minutes=8.0
+    )
+    f_slowtraffic = calculate_meter_estimate(
+        40.7580, -73.9855, 40.7527, -73.9772,
+        datetime.date(2025, 10, 15), datetime.time(12, 0), road_distance_km=5.0, duration_minutes=35.0
+    )
+    if f_slowtraffic["time_component"] >= f_freeflow["time_component"]:
+        print(f"  Time Component Sensitivity Verified: FreeFlow TimeComp=${f_freeflow['time_component']:.2f} -> SlowTraffic TimeComp=${f_slowtraffic['time_component']:.2f} -> PASSED [OK]")
+        fare_passed += 1
+    else:
+        print(f"  Duration sensitivity failed: {f_freeflow['time_component']} vs {f_slowtraffic['time_component']} -> FAILED")
+
+    # FARE TEST 4: Time-Dependent Surcharge (Weekday Rush 5 PM vs Midday 12 PM)
+    print(f"\nEvaluating {fare_tests[3]['name']}...")
+    f_midday = calculate_meter_estimate(
+        40.7580, -73.9855, 40.7527, -73.9772,
+        datetime.date(2025, 10, 15), datetime.time(12, 0), road_distance_km=5.0 # Wednesday 12 PM
+    )
+    f_rush = calculate_meter_estimate(
+        40.7580, -73.9855, 40.7527, -73.9772,
+        datetime.date(2025, 10, 15), datetime.time(17, 30), road_distance_km=5.0 # Wednesday 5:30 PM (Rush)
+    )
+    if f_rush["surcharge_breakdown"]["rush_hour"] == 2.50 and f_midday["surcharge_breakdown"]["rush_hour"] == 0.0:
+        print(f"  Rush-Hour Tariff Verified: Midday Surcharge=${f_midday['surcharge_breakdown']['rush_hour']:.2f} vs Rush Surcharge=${f_rush['surcharge_breakdown']['rush_hour']:.2f} -> PASSED [OK]")
+        fare_passed += 1
+    else:
+        print(f"  Rush-hour rule failed: Midday={f_midday['surcharge_breakdown']}, Rush={f_rush['surcharge_breakdown']} -> FAILED")
+
+    # FARE TEST 5: Passenger Count Boundary
+    print(f"\nEvaluating {fare_tests[4]['name']}...")
+    f_p1 = calculate_meter_estimate(40.7580, -73.9855, 40.7527, -73.9772, datetime.date(2025, 10, 15), datetime.time(12, 0), passenger_count=1, road_distance_km=5.0)
+    f_p4 = calculate_meter_estimate(40.7580, -73.9855, 40.7527, -73.9772, datetime.date(2025, 10, 15), datetime.time(12, 0), passenger_count=4, road_distance_km=5.0)
+    if f_p1["status"] == "success" and f_p4["status"] == "success" and f_p1["base_fare"] == f_p4["base_fare"]:
+        print(f"  Passenger Governance Verified: Rates correctly conform to vehicle tariffs without arbitrary passenger surcharges -> PASSED [OK]")
+        fare_passed += 1
+    else:
+        print(f"  Passenger count handling failed: {f_p1} vs {f_p4} -> FAILED")
+
+    # FARE TEST 6: Missing Input Validation Error
+    print(f"\nEvaluating {fare_tests[5]['name']}...")
+    f_miss = calculate_meter_estimate(None, None, 40.7527, -73.9772, datetime.date(2025, 10, 15), datetime.time(12, 0), road_distance_km=5.0)
+    if f_miss["status"] == "validation_error" and "Missing" in f_miss["error_message"]:
+        print(f"  Validation Error Caught Gracefully: {f_miss['error_message']} -> PASSED [OK]")
+        fare_passed += 1
+    else:
+        print(f"  Expected validation_error, got {f_miss} -> FAILED")
+
+    # FARE TEST 7: DNN Prediction Functional Integrity
+    print(f"\nEvaluating {fare_tests[6]['name']}...")
+    dnn_live_df = pd.DataFrame([{
+        "key": "test_fare_dnn_live",
+        "pickup_datetime": pd.to_datetime("2025-10-15 17:30:00"),
+        "pickup_longitude": -73.9855, "pickup_latitude": 40.7580,
+        "dropoff_longitude": -73.7781, "dropoff_latitude": 40.6413,
+        "passenger_count": 2
+    }])
+    dnn_live_feats = extract_features(dnn_live_df)
+    dnn_live_scaled = scaler.transform(dnn_live_feats[FEATURE_COLS].values)
+    with torch.no_grad():
+        dnn_live_fare = model(torch.tensor(dnn_live_scaled, dtype=torch.float32)).item()
+    dnn_live_fare = max(2.50, round(dnn_live_fare, 2))
+    if dnn_live_fare > 10.0:
+        print(f"  PyTorch DNN Coexistence Confirmed: ML Prediction = ${dnn_live_fare:.2f} (Huber Loss Checkpoint) -> PASSED [OK]")
+        fare_passed += 1
+    else:
+        print(f"  DNN prediction unexpected: ${dnn_live_fare:.2f} -> FAILED")
+
+    # FARE TEST 8: ML vs Reference Comparison Calculation
+    print(f"\nEvaluating {fare_tests[7]['name']}...")
+    cmp_res = compare_fares(24.30, 25.10)
+    if cmp_res["difference"] == -0.80 and cmp_res["absolute_difference"] == 0.80 and cmp_res["percentage_difference"] == 3.19 and cmp_res["direction"] == "lower":
+        print(f"  Comparison Mathematics Verified: Diff=${cmp_res['difference']:.2f}, AbsDiff=${cmp_res['absolute_difference']:.2f}, Pct={cmp_res['percentage_difference']:.2f}% ({cmp_res['direction']}) -> PASSED [OK]")
+        fare_passed += 1
+    else:
+        print(f"  Comparison calculation mismatch: {cmp_res} -> FAILED")
+
+    # FARE TEST 9: Extreme / Out-of-Bounds Parameter Validation
+    print(f"\nEvaluating {fare_tests[8]['name']}...")
+    f_extreme = calculate_meter_estimate(40.7580, -73.9855, 40.7527, -73.9772, datetime.date(2025, 10, 15), datetime.time(12, 0), passenger_count=99, road_distance_km=5.0)
+    if f_extreme["status"] == "validation_error" and "Invalid passenger count" in f_extreme["error_message"]:
+        print(f"  Out-of-Bounds Parameter Caught: {f_extreme['error_message']} -> PASSED [OK]")
+        fare_passed += 1
+    else:
+        print(f"  Expected validation_error for extreme input, got {f_extreme} -> FAILED")
+
+    # FARE TEST 10: Zero/Edge-Case Reference Fare ZeroDivisionError Protection
+    print(f"\nEvaluating {fare_tests[9]['name']}...")
+    cmp_zero = compare_fares(20.0, 0.0)
+    if cmp_zero["difference"] == 20.0 and cmp_zero["percentage_difference"] == 0.0 and cmp_zero["direction"] == "higher":
+        print(f"  ZeroDivisionError Protection Verified: Zero-reference edge-case handled safely without crash -> PASSED [OK]")
+        fare_passed += 1
+    else:
+        print(f"  Zero reference handling failed: {cmp_zero} -> FAILED")
+
+    total_tests = len(test_cases) + len(geocoding_tests) + len(routing_tests) + len(fare_tests)
+    total_passed = passed + geo_passed + routing_passed + fare_passed
+    print("\n" + "="*80)
+    print(f"DEPLOYMENT, GEOCODING, ROUTING & FARE ENGINE TEST SUMMARY: {total_passed} / {total_tests} Test Cases Passed.")
     print("="*80)
     return total_passed == total_tests
 

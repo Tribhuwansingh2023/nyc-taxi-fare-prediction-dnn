@@ -50,6 +50,7 @@ from feature_engineering import extract_features, haversine_distance, FEATURE_CO
 from dnn_model import TaxiFareDNN
 from geocoding import geocode_address, is_in_nyc_bbox
 from routing import get_road_route, format_duration, calculate_haversine_km
+from fare_engine import calculate_meter_estimate, compare_fares, get_dnn_prediction_interval, NYC_TLC_FARE_RULES
 
 # Configure Page
 st.set_page_config(
@@ -1782,6 +1783,23 @@ route_status_badge = (
 nearby_cabs = get_nearby_cabs(p_lat, p_lon)
 
 # =============================================================================
+# REALISTIC FARE ESTIMATION ENGINE (FEATURE #3)
+# =============================================================================
+ref_fare_res = calculate_meter_estimate(
+    pickup=(p_lat, p_lon),
+    dropoff=(d_lat, d_lon),
+    date=trip_date,
+    time=trip_time,
+    passenger_count=passengers,
+    road_distance=road_dist_km,
+    duration=road_dur_mins,
+    rule_set_key="current_2025"
+)
+ref_estimate = ref_fare_res["estimated_total"]
+fare_comp = compare_fares(pred_fare, ref_estimate)
+dnn_interval = get_dnn_prediction_interval(pred_fare)
+
+# =============================================================================
 # REAL-TIME GEOCODED ROUTE & FARE OVERVIEW CARD
 # =============================================================================
 disp_p_addr = (
@@ -1797,7 +1815,7 @@ disp_d_addr = (
 
 st.markdown(f"""
 <div style="background: {card_bg}; border: 1px solid {card_border}; border-radius: 16px; padding: 1.1rem 1.4rem; margin-bottom: 1rem; box-shadow: 0 4px 18px rgba(0,0,0,0.05); display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem;">
-    <div style="flex: 1 1 280px; min-width: 240px;">
+    <div style="flex: 1 1 260px; min-width: 220px;">
         <div style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: {'#10B981' if is_night_theme else '#16A34A'}; margin-bottom: 0.25rem;">
             🟢 📍 Pickup Location
         </div>
@@ -1815,7 +1833,7 @@ st.markdown(f"""
         </div>
         <div style="font-size: 0.7rem; color: {'#94A3B8' if is_night_theme else '#64748B'};">air distance</div>
     </div>
-    <div style="flex: 1 1 280px; min-width: 240px;">
+    <div style="flex: 1 1 260px; min-width: 220px;">
         <div style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: {'#F43F5E' if is_night_theme else '#DC2626'}; margin-bottom: 0.25rem;">
             🔴 🏁 Drop-off Location
         </div>
@@ -1826,15 +1844,20 @@ st.markdown(f"""
             {d_lat:.4f}, {d_lon:.4f}
         </div>
     </div>
-    <div style="border-left: 1px solid {card_border}; padding-left: 1.2rem; flex: 0 1 auto; min-width: 150px; text-align: right;">
-        <div style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: {'#94A3B8' if is_night_theme else '#64748B'};">
-            Predicted Fare
+    <div style="border-left: 1px solid {card_border}; padding-left: 1.2rem; flex: 0 1 auto; min-width: 170px; text-align: right;">
+        <div style="font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: {'#94A3B8' if is_night_theme else '#64748B'};">
+            🤖 ML Prediction
         </div>
-        <div style="font-family: 'JetBrains Mono', monospace; font-size: 1.85rem; font-weight: 800; color: {'#10B981' if is_night_theme else '#16A34A'}; line-height: 1.1; margin-top: 0.2rem;">
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 1.7rem; font-weight: 800; color: {'#10B981' if is_night_theme else '#16A34A'}; line-height: 1.1; margin-top: 0.15rem;">
             ${pred_fare:.2f}
         </div>
-        <div style="font-size: 0.7rem; color: {'#94A3B8' if is_night_theme else '#64748B'};">
+        <div style="font-size: 0.68rem; color: {'#94A3B8' if is_night_theme else '#64748B'}; margin-bottom: 0.35rem;">
             PyTorch DNN (Huber)
+        </div>
+        <div style="border-top: 1px solid {card_border}; padding-top: 0.3rem; display: flex; justify-content: flex-end; align-items: baseline; gap: 0.4rem;">
+            <span style="font-size: 0.7rem; color: {'#94A3B8' if is_night_theme else '#64748B'}; font-weight: 600;">📜 Ref:</span>
+            <span style="font-family: 'JetBrains Mono', monospace; font-size: 0.92rem; font-weight: 700; color: {'#38BDF8' if is_night_theme else '#2563EB'};">${ref_estimate:.2f}</span>
+            <span style="font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; font-weight: 600; color: {'#F59E0B' if is_night_theme else '#D97706'};">({'+' if fare_comp['difference'] >= 0 else '-'}${fare_comp['absolute_difference']:.2f})</span>
         </div>
     </div>
 </div>
@@ -1881,6 +1904,94 @@ st.markdown(f"""
     <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem; font-size: 0.76rem; color: {card_text};">
         <div>📡 <b>Routing Provider:</b> <code style="color: {'#38BDF8' if is_night_theme else '#0284C7'};">{routing_provider}</code></div>
         <div>ℹ️ <i>Current DNN was trained using the original feature schema. Road distance is currently used for routing and trip intelligence.</i></div>
+    </div>
+</div>
+""", unsafe_allow_html=True)
+
+# =============================================================================
+# CLEAN TRIP SUMMARY & COMPARATIVE FARE ANALYSIS CARD (FEATURE #3)
+# =============================================================================
+st.markdown(f"""
+<div style="background: {card_bg}; border: 1px solid {card_border}; border-radius: 16px; padding: 1.2rem 1.4rem; margin-bottom: 1.2rem; box-shadow: 0 4px 18px rgba(0,0,0,0.05);">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.9rem; border-bottom: 1px solid {card_border}; padding-bottom: 0.5rem; flex-wrap: wrap; gap: 0.5rem;">
+        <div style="font-size: 0.95rem; font-weight: 700; color: {'#38BDF8' if is_night_theme else '#0284C7'}; text-transform: uppercase; letter-spacing: 0.06em;">
+            📋 Trip Summary & Comparative Fare Analysis
+        </div>
+        <div style="font-size: 0.8rem; color: {'#94A3B8' if is_night_theme else '#64748B'};">
+            Trip Date: <b>{trip_date.strftime('%b %d, %Y')}</b> &nbsp;|&nbsp; Departure: <b>{trip_time.strftime('%I:%M %p')}</b>
+        </div>
+    </div>
+    
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.2rem;">
+        <!-- Left: Trip Parameters -->
+        <div style="background: {'rgba(15, 23, 42, 0.45)' if is_night_theme else '#F8FAFC'}; border: 1px solid {card_border}; border-radius: 12px; padding: 1rem 1.1rem;">
+            <div style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: {'#38BDF8' if is_night_theme else '#2563EB'}; margin-bottom: 0.6rem;">
+                TRIP
+            </div>
+            <div style="margin-bottom: 0.55rem;">
+                <div style="font-size: 0.72rem; color: {'#94A3B8' if is_night_theme else '#64748B'}; text-transform: uppercase; font-weight: 600;">Pickup</div>
+                <div style="font-size: 0.92rem; font-weight: 700; color: {card_text};">{disp_p_addr}</div>
+            </div>
+            <div style="margin-bottom: 0.55rem;">
+                <div style="font-size: 0.72rem; color: {'#94A3B8' if is_night_theme else '#64748B'}; text-transform: uppercase; font-weight: 600;">Drop-off</div>
+                <div style="font-size: 0.92rem; font-weight: 700; color: {card_text};">{disp_d_addr}</div>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; margin-top: 0.6rem; border-top: 1px dashed {card_border}; padding-top: 0.6rem;">
+                <div>
+                    <div style="font-size: 0.72rem; color: {'#94A3B8' if is_night_theme else '#64748B'};">Air Distance</div>
+                    <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.95rem; font-weight: 700; color: {card_text};">{distance_km:.2f} km</div>
+                </div>
+                <div>
+                    <div style="font-size: 0.72rem; color: {'#94A3B8' if is_night_theme else '#64748B'};">Road Distance</div>
+                    <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.95rem; font-weight: 700; color: {'#38BDF8' if is_night_theme else '#0284C7'};">{road_dist_display}</div>
+                </div>
+                <div>
+                    <div style="font-size: 0.72rem; color: {'#94A3B8' if is_night_theme else '#64748B'};">Estimated Duration</div>
+                    <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.95rem; font-weight: 700; color: {'#10B981' if is_night_theme else '#16A34A'};">{road_dur_fmt if is_route_success else 'Duration unavailable'}</div>
+                </div>
+                <div>
+                    <div style="font-size: 0.72rem; color: {'#94A3B8' if is_night_theme else '#64748B'};">Passengers</div>
+                    <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.95rem; font-weight: 700; color: {card_text};">{passengers}</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right: Fare Comparison Box -->
+        <div style="background: {'rgba(15, 23, 42, 0.45)' if is_night_theme else '#F8FAFC'}; border: 1px solid {card_border}; border-radius: 12px; padding: 1rem 1.1rem; display: flex; flex-direction: column; justify-content: space-between;">
+            <div>
+                <div style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: {'#38BDF8' if is_night_theme else '#2563EB'}; margin-bottom: 0.6rem;">
+                    FARE COMPARISON
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.45rem;">
+                    <div>
+                        <div style="font-size: 0.9rem; font-weight: 700; color: {card_text};">🤖 ML Prediction</div>
+                        <div style="font-size: 0.7rem; color: {'#94A3B8' if is_night_theme else '#64748B'};">PyTorch Deep Feedforward Neural Network</div>
+                    </div>
+                    <div style="font-family: 'JetBrains Mono', monospace; font-size: 1.25rem; font-weight: 800; color: {'#10B981' if is_night_theme else '#16A34A'};">
+                        ${pred_fare:.2f}
+                    </div>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.6rem;">
+                    <div>
+                        <div style="font-size: 0.9rem; font-weight: 700; color: {card_text};">📜 Reference Fare Estimate</div>
+                        <div style="font-size: 0.7rem; color: {'#94A3B8' if is_night_theme else '#64748B'};">NYC TLC Rule-Based Meter Tariff</div>
+                    </div>
+                    <div style="font-family: 'JetBrains Mono', monospace; font-size: 1.25rem; font-weight: 800; color: {'#38BDF8' if is_night_theme else '#2563EB'};">
+                        ${ref_estimate:.2f}
+                    </div>
+                </div>
+                <div style="border-top: 1px solid {card_border}; padding-top: 0.55rem; display: flex; justify-content: space-between; align-items: center;">
+                    <div style="font-size: 0.88rem; font-weight: 700; color: {card_text};">Difference</div>
+                    <div style="font-family: 'JetBrains Mono', monospace; font-size: 1.2rem; font-weight: 800; color: {'#F59E0B' if is_night_theme else '#D97706'};">
+                        ${fare_comp['absolute_difference']:.2f} <span style="font-size: 0.8rem; font-weight: 600;">({'+' if fare_comp['difference'] >= 0 else '-'}{fare_comp['percentage_difference']:.1f}%)</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div style="margin-top: 0.6rem; padding-top: 0.5rem; border-top: 1px dashed {card_border}; font-size: 0.72rem; color: {'#94A3B8' if is_night_theme else '#64748B'}; line-height: 1.35;">
+                ℹ️ <b>Academic Distinction:</b> ML prediction is learned from historical clearing transactions. Reference estimate is calculated strictly from statutory TLC meter rules.
+            </div>
+        </div>
     </div>
 </div>
 """, unsafe_allow_html=True)
@@ -2049,14 +2160,15 @@ with tab_main:
         st.markdown(f"""
         <div class="taximeter-hud">
             {jfk_badge_html}
-            <div class="taximeter-title">Deep Feedforward Neural Prediction</div>
+            <div class="taximeter-title">🤖 ML PREDICTION</div>
             <div class="taximeter-fare">${meter_display_fare:.2f}</div>
             {tip_notice_html}
             <div class="taximeter-ci">
-                95% Empirical Prediction Interval: <b>${max(2.50, meter_display_fare - 1.60):.2f} – ${meter_display_fare + 1.60:.2f}</b>
+                Estimated Prediction Interval: <b>${dnn_interval['lower_bound']:.2f} – ${dnn_interval['upper_bound']:.2f}</b><br>
+                <span style="font-size: 0.72rem; font-weight: 500; opacity: 0.85;">Method: {dnn_interval['method']}</span>
             </div>
-            <div style="font-size: 0.8rem; color: {'#D1FAE5' if is_night_theme else '#64748B'}; margin-top: 0.8rem;">
-                Trained with Huber Loss (δ=1.0) & Batch Normalization on NYC TLC Telemetry
+            <div style="font-size: 0.78rem; color: {'#D1FAE5' if is_night_theme else '#64748B'}; margin-top: 0.8rem;">
+                Model: PyTorch Deep Feedforward Neural Network (Huber Loss δ=1.0, 33 Features)
             </div>
         </div>
         """, unsafe_allow_html=True)
@@ -2094,21 +2206,69 @@ with tab_main:
         )
         st.plotly_chart(fig_gauge, use_container_width=True)
         
-        # Real-time Itemized Cost Breakdown
-        with st.expander("🧾 Official NYC Taxi Tariff Breakdown Analysis", expanded=True):
-            base_charge = 2.50
-            dist_charge = max(0.0, distance_km * 1.56)
-            surch_charge = (1.00 if is_rush else 0.0) + (0.50 if is_night else 0.0)
-            mta_tax = 0.80
-            
+        # Side-by-Side FARE COMPARISON Card (ML vs Reference)
+        st.markdown(f"""
+        <div style="background: {card_bg}; border: 1px solid {card_border}; border-radius: 14px; padding: 1.1rem 1.3rem; margin: 0.8rem 0; box-shadow: 0 4px 14px rgba(0,0,0,0.04);">
+            <div style="font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: {'#38BDF8' if is_night_theme else '#0284C7'}; margin-bottom: 0.6rem;">
+                ⚖️ FARE COMPARISON (ML vs REFERENCE)
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+                <span style="font-size: 0.9rem; color: {card_text}; font-weight: 600;">🤖 ML Prediction</span>
+                <span style="font-family: 'JetBrains Mono', monospace; font-size: 1.15rem; font-weight: 800; color: {'#10B981' if is_night_theme else '#16A34A'};">${pred_fare:.2f}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                <span style="font-size: 0.9rem; color: {card_text}; font-weight: 600;">📜 Reference Estimate</span>
+                <span style="font-family: 'JetBrains Mono', monospace; font-size: 1.15rem; font-weight: 800; color: {'#38BDF8' if is_night_theme else '#2563EB'};">${ref_estimate:.2f}</span>
+            </div>
+            <div style="border-top: 1px solid {card_border}; padding-top: 0.5rem; display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-size: 0.88rem; font-weight: 700; color: {card_text};">Difference</span>
+                <span style="font-family: 'JetBrains Mono', monospace; font-size: 1.15rem; font-weight: 800; color: {'#F59E0B' if is_night_theme else '#D97706'};">
+                    ${fare_comp['absolute_difference']:.2f} <span style="font-size: 0.8rem; font-weight: 600;">({'+' if fare_comp['difference'] >= 0 else '-'}{fare_comp['percentage_difference']:.1f}%)</span>
+                </span>
+            </div>
+            <div style="font-size: 0.74rem; color: {'#94A3B8' if is_night_theme else '#64748B'}; margin-top: 0.45rem;">
+                {fare_comp['explanation']}
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # Transparent Real-time Itemized Cost Breakdown
+        with st.expander("🧾 Estimated Meter-Style Fare Breakdown", expanded=True):
             st.markdown(f"""
-            - **Base Flag Drop Charge:** `$2.50` *(Initial charge upon entry)*
-            - **Distance Incremental Meter:** `~${dist_charge:.2f}` *($0.50 per 1/5 mile)*
-            - **Congestion Rush-Hour Surcharge:** `{'+$1.00' if is_rush else '$0.00'}`
-            - **Night Tariff Surcharge:** `{'+$0.50' if is_night else '$0.00'}`
-            - **MTA State Tax & Improvement Fund:** `+$0.80` *($0.50 MTA + $0.30 Improvement)*
-            - **Weather / Traffic Multiplier:** `{weather_mult:.2f}x`
-            - **Regulatory Baseline Formula Estimate:** **`${est_rule_fare:.2f}`**
+            <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.86rem; line-height: 1.65; background: {'rgba(15, 23, 42, 0.5)' if is_night_theme else '#F8FAFC'}; border: 1px solid {card_border}; border-radius: 10px; padding: 0.9rem 1.1rem; margin-bottom: 0.8rem;">
+                <div style="font-weight: 700; color: {'#38BDF8' if is_night_theme else '#0284C7'}; margin-bottom: 0.5rem; letter-spacing: 0.05em; font-size: 0.88rem;">ESTIMATED FARE</div>
+                <div style="display: flex; justify-content: space-between;"><span>Base Fare</span> <span>${ref_fare_res['base_fare']:.2f}</span></div>
+                <div style="display: flex; justify-content: space-between;"><span>Distance Component</span> <span>${ref_fare_res['distance_component']:.2f}</span></div>
+                <div style="display: flex; justify-content: space-between;"><span>Time Component</span> <span>${ref_fare_res['time_component']:.2f}</span></div>
+                <div style="display: flex; justify-content: space-between;"><span>Applicable Surcharge</span> <span>${ref_fare_res['surcharge']:.2f}</span></div>
+                <div style="display: flex; justify-content: space-between;"><span>Taxes/Fees</span> <span>${ref_fare_res['taxes']:.2f}</span></div>
+                <div style="border-top: 1px dashed {card_border}; margin: 0.5rem 0;"></div>
+                <div style="display: flex; justify-content: space-between; font-weight: 800; font-size: 1.05rem; color: {'#10B981' if is_night_theme else '#16A34A'};"><span>Reference Estimate</span> <span>${ref_fare_res['estimated_total']:.2f}</span></div>
+            </div>
+            """, unsafe_allow_html=True)
+            st.markdown(f"""
+            - **Distance Component:** `${ref_fare_res['distance_component']:.2f}` for `{ref_fare_res['distance_used_km']:.2f} km` *({'OSRM road distance' if is_route_success else 'geodesic distance with 1.25x circuity factor'})* at $2.1748/km ($0.70 per 1/5 mile).
+            - **Time Component:** `${ref_fare_res['time_component']:.2f}` for `{ref_fare_res['duration_used_minutes']:.1f} mins` slow-speed / traffic delay proxy ($0.70 per minute).
+            - **Applicable Surcharge:** `${ref_fare_res['surcharge']:.2f}` (Rush: `{"$2.50" if ref_fare_res["is_rush_applied"] else "$0.00"}` | Overnight: `{"$1.00" if ref_fare_res["is_night_applied"] else "$0.00"}` | Congestion Zone: `{"$2.50" if ref_fare_res["is_congestion_applied"] else "$0.00"}`).
+            - **Taxes/Fees:** `${ref_fare_res['taxes']:.2f}` ($0.50 MTA state tax + $1.00 TLC improvement fund).
+            """)
+
+        with st.expander("📚 Academic Methodology & Tariff Governance", expanded=False):
+            st.markdown(r"""
+            #### 📜 Reference Fare Estimate Methodology
+            - **Formula / Rules Used:** $\\text{Base Flag Drop } (\\$3.00) + \\text{Distance Component } (\\$2.1748/\\text{km}) + \\text{Time Component } (\\$0.70/\\text{min slow traffic proxy}) + \\text{Documented Surcharges} + \\text{Taxes}$
+            - **Source:** NYC Taxi & Limousine Commission (TLC) Official Taxicab Rate of Fare
+            - **Effective Date:** December 19, 2022 – Present (verified 2025 regulatory rules)
+            - **Jurisdiction:** City of New York (medallion yellow & street hail green taxis)
+            - **Assumptions:** Real turn-by-turn road distance is used when routing is online; straight-line distance with 1.25× empirical circuity factor is used as fallback. Time component applies to estimated congested/stopped delay duration (~25% of total travel time). Tips are excluded from statutory meter fares.
+
+            #### 🤖 ML Prediction Methodology
+            - **Trained Model:** PyTorch Deep Feedforward Neural Network (`TaxiFareDNN`, 3 hidden layers: 128 → 64 → 32 with BatchNorm, ReLU, and Dropout).
+            - **Loss Function:** Huber Loss ($\delta = 1.0$) for robust convergence against heavy-tailed fare outliers.
+            - **Feature Pipeline:** 33 engineered features including Haversine distance, Manhattan L1 distance, airport bounding vectors, cyclical hour/month encodings, historical surge indicators, and weather multiplier.
+            - **Model Version:** Checkpoint `saved_models/taxi_fare_dnn.pt` trained on Kaggle NYC Taxi historical trips.
+            - **Prediction Interval:** Derived from empirical validation residuals ($\text{RMSE} = \$3.31, \text{MAE} = \$1.57, n=14,607$) rather than an arbitrary heuristic.
+            - **Critical Academic Distinction:** The ML model predicts historical clearing prices (which reflect historical market conditions and driver behaviors), whereas the Reference Estimate calculates statutory meter rates under NYC TLC rules. Neither replaces the other; they provide complementary intelligence.
             """)
 
     with col_map:
@@ -2776,14 +2936,14 @@ with tab_viz:
 # TAB 7: AUTOMATED TEST SUITE RUNNER
 # -----------------------------------------------------------------------------
 with tab_test:
-    st.markdown("### 🧪 Automated Deployment, Geocoding & Road Routing Verification Test Suite")
-    st.markdown("Executes `app/test_deployment.py` to validate checkpoint integrity, scaler transformations, real address geocoding, real road routing, and inference boundaries across 17 operational test scenarios:")
+    st.markdown("### 🧪 Automated Deployment, Geocoding, Road Routing & Fare Engine Verification Test Suite")
+    st.markdown("Executes `app/test_deployment.py` to validate checkpoint integrity, scaler transformations, real address geocoding, real road routing, and realistic fare engine estimation across 27 operational test scenarios:")
     
     toggle_live_telemetry = st.toggle(
         "⚡ Extended Diagnostics & Telemetry Assertion Logs",
         value=True,
         key="tgl_test_telemetry",
-        help="Display full terminal execution logs including benchmark bounds and geodetic distances."
+        help="Display full terminal execution logs including benchmark bounds, tariffs, and geodetic distances."
     )
     
     if st.button("▶️ Execute Automated Deployment Test Suite", key="btn_run_tests_tab"):
@@ -2793,7 +2953,7 @@ with tab_test:
         if toggle_live_telemetry:
             st.code(res.stdout, language="bash")
         if res.returncode == 0:
-            st.success("✅ All 17 Deployment, Geocoding & Road Routing Validation Tests Passed Successfully (100% Pass Rate)!")
+            st.success("✅ All 27 Deployment, Geocoding, Road Routing & Fare Engine Validation Tests Passed Successfully (100% Pass Rate)!")
         else:
             st.error("❌ Some deployment tests encountered issues.")
 
